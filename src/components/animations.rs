@@ -1,0 +1,1 @@
+// This file is intentionally empty as animations are handled directly in the boss system
