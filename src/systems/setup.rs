@@ -38,7 +38,26 @@ pub fn setup_platform(
     // Create additional floating platforms
     let platform_configs = vec![
         // Left side platforms
-        (Vec3::new(5.0, 1.0, 0.0), Vec3::new(5.0, 2.0, 5.0)),
+        (Vec3::new(-8.0, 2.0, 0.0), Vec3::new(4.0, 0.5, 3.0)),   // Small left platform
+        (Vec3::new(-12.0, 4.5, 0.0), Vec3::new(3.0, 0.5, 2.5)),  // Higher left platform
+        (Vec3::new(-6.0, 6.0, 0.0), Vec3::new(2.5, 0.5, 2.0)),   // Narrow high platform
+
+        // Right side platforms
+        (Vec3::new(8.0, 1.5, 0.0), Vec3::new(3.5, 0.5, 4.0)),    // Low right platform
+        (Vec3::new(12.0, 3.5, 0.0), Vec3::new(2.0, 0.5, 2.0)),   // Small high right
+        (Vec3::new(10.0, 5.5, 0.0), Vec3::new(3.0, 0.5, 2.5)),   // Medium high right
+
+        // Center platforms for vertical progression
+        (Vec3::new(0.0, 3.0, 0.0), Vec3::new(2.0, 0.5, 2.0)),    // Center low
+        (Vec3::new(-2.0, 5.0, 0.0), Vec3::new(1.5, 0.5, 1.5)),   // Center-left high
+        (Vec3::new(2.0, 7.0, 0.0), Vec3::new(1.5, 0.5, 1.5)),    // Center-right very high
+
+        // Stepping stone platforms
+        (Vec3::new(-4.0, 8.5, 0.0), Vec3::new(1.0, 0.5, 1.0)),   // Tiny stepping stone
+        (Vec3::new(4.0, 8.5, 0.0), Vec3::new(1.0, 0.5, 1.0)),    // Another tiny stepping stone
+
+        // Long bridge-like platforms
+        (Vec3::new(0.0, 10.0, 0.0), Vec3::new(8.0, 0.5, 1.5)),   // High bridge
     ];
 
     // Spawn all additional platforms

@@ -150,9 +150,6 @@ pub fn move_boss(
             };
             return;
         }
-
-        // Clamp horizontal position
-        transform.translation.x = transform.translation.x.clamp(-14.0, 14.0);
     }
 }
 
