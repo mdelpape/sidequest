@@ -3,7 +3,7 @@ use bevy_rapier3d::prelude::*;
 use crate::components::{Platform, FollowCamera};
 
 pub fn setup_camera(mut commands: Commands) {
-    // Camera
+    // Camera - skybox will be added later by the skybox system
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 2.0, 8.0) // Slightly higher for better view

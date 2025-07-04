@@ -29,6 +29,7 @@ fn main() {
         // .add_plugins(RapierDebugRenderPlugin::default()) // Removed debug rendering of colliders
         .add_systems(Startup, (
             init_animations,
+            setup_skybox,
             setup_camera,
             setup_platform,
             setup_lighting,
@@ -39,6 +40,7 @@ fn main() {
             control_animation,
             follow_camera,
             update_light_position,
+            reinterpret_cubemap,
             debug_animation_setup,
         ).chain())
         .run();

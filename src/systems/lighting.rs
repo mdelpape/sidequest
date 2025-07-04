@@ -1,48 +1,105 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 use crate::components::{Boss, FollowLight};
 
-pub fn setup_lighting(mut commands: Commands) {
-    // Ambient light
+pub fn setup_lighting(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Ambient light - keep it low for dramatic lamp post effect
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 0.00, // Low intensity ambient light
+        brightness: 0.05, // Very low ambient light
     });
 
-    // Directional 'sun' light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: true,
-            illuminance: 100.0,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0)
-            .looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    // Create lamp posts positioned behind the player
+    let lamp_post_positions = vec![
+        Vec3::new(-5.0, 0.0, 3.0),  // Left lamp post behind player
+        Vec3::new(5.0, 0.0, 3.0),   // Right lamp post behind player
+        Vec3::new(0.0, 0.0, 4.0),   // Center lamp post behind player
+    ];
 
-    // Point light that will follow the boss
-    let light_offset = Vec3::new(0.0, 3.0, 0.0); // Light positioned right above the boss
+    for (i, position) in lamp_post_positions.iter().enumerate() {
+        // Create lamp post model
+        let lamp_post_entity = commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cylinder {
+                    radius: 0.1,
+                    height: 4.0,
+                    resolution: 8,
+                    segments: 1,
+                })),
+                material: materials.add(Color::rgb(0.2, 0.2, 0.2).into()), // Dark gray post
+                transform: Transform::from_translation(*position),
+                ..default()
+            },
+            RigidBody::Fixed,
+            Collider::cylinder(2.0, 0.1), // Collider for the post
+            Name::new(format!("LampPost_{}", i)),
+        )).id();
+
+        // Add lamp shade on top
+        let lamp_shade_entity = commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cylinder {
+                    radius: 0.35,
+                    height: 0.3,
+                    resolution: 8,
+                    segments: 1,
+                })),
+                material: materials.add(Color::rgb(0.1, 0.1, 0.1).into()), // Dark lamp shade
+                transform: Transform::from_xyz(0.0, 2.2, 0.0),
+                ..default()
+            },
+            Name::new(format!("LampShade_{}", i)),
+        )).id();
+
+        // Add the light source
+        let light_entity = commands.spawn((
+            PointLightBundle {
+                point_light: PointLight {
+                    intensity: 2000.0, // Higher intensity for lamp posts
+                    shadows_enabled: true,
+                    color: Color::rgb(1.0, 0.9, 0.7), // Warm yellow light
+                    range: 20.0, // Good range for lamp posts
+                    radius: 0.5,
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 2.0, 0.0), // Position light at top of post
+                ..default()
+            },
+            Name::new(format!("LampLight_{}", i)),
+        )).id();
+
+        // Make lamp shade and light children of the lamp post
+        commands.entity(lamp_post_entity).push_children(&[lamp_shade_entity, light_entity]);
+    }
+
+    // Add a following light that moves with the player for better visibility
+    let follow_light_offset = Vec3::new(0.0, 2.0, 2.0); // Behind and above the player
 
     commands.spawn((
         PointLightBundle {
             point_light: PointLight {
-                intensity: 1000.0, // Moderate intensity for focused lighting
-                shadows_enabled: true,
-                color: Color::rgb(0.9, 0.9, 1.0), // Slightly bluish tint for spooky effect
-                range: 15.0, // Limited range for the light
-                radius: 1.0, // Makes the light source slightly larger
+                intensity: 500.0, // Lower intensity following light
+                shadows_enabled: false, // Disable shadows for performance
+                color: Color::rgb(0.8, 0.8, 1.0), // Cool blue tint
+                range: 10.0,
+                radius: 0.3,
                 ..default()
             },
             transform: Transform::from_xyz(
-                light_offset.x,
-                light_offset.y,
-                light_offset.z,
+                follow_light_offset.x,
+                follow_light_offset.y,
+                follow_light_offset.z,
             ),
             ..default()
         },
         FollowLight {
-            offset: light_offset,
+            offset: follow_light_offset,
         },
+        Name::new("FollowingLight"),
     ));
 }
 
