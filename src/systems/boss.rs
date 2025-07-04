@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use crate::components::{Boss, Platform, BossAnimations};
+use crate::components::Boss;
+use crate::plugins::physics::Platform;
+use crate::resources::BossAnimations;
 
 pub fn spawn_boss(
     mut commands: Commands,
@@ -30,6 +32,10 @@ pub fn spawn_boss(
             Restitution {
                 coefficient: 0.0,
                 combine_rule: CoefficientCombineRule::Min,
+            },
+            Damping {
+                linear_damping: 0.5,
+                angular_damping: 1.0,
             },
             Boss {
                 speed: 5.0,
@@ -95,8 +101,12 @@ pub fn move_boss(
 
         if direction == 0.0 {
             boss.is_moving = false;
-            // Apply friction to stop horizontal movement
-            velocity.linvel.x *= 0.1;
+            // Apply strong friction to stop horizontal movement immediately
+            if boss.is_grounded {
+                velocity.linvel.x *= 0.07; // Much stronger friction when grounded
+            } else {
+                velocity.linvel.x *= 0.95; // Lighter friction when in air
+            }
         }
 
         // Update horizontal velocity
@@ -159,11 +169,14 @@ pub fn control_animation(
     mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<BossAnimations>,
 ) {
-    let (mut boss, _velocity) = if let Ok(data) = boss_query.get_single_mut() {
+    let (mut boss, velocity) = if let Ok(data) = boss_query.get_single_mut() {
         data
     } else {
         return;
     };
+
+    // Use both the is_moving flag and velocity to determine if actually moving
+    let is_actually_moving = boss.is_moving && velocity.linvel.x.abs() > 0.1;
 
     for mut player in animation_players.iter_mut() {
         if boss.is_front_flipping {
@@ -178,7 +191,7 @@ pub fn control_animation(
             }
         } else if !boss.is_grounded {
             player.play(animations.air.clone()).repeat();
-        } else if boss.is_moving {
+        } else if is_actually_moving {
             player.play(animations.walk.clone()).repeat();
         } else {
             player.play(animations.idle.clone()).repeat();

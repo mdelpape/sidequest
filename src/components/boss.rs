@@ -10,12 +10,3 @@ pub struct Boss {
     pub flip_direction: Vec3,
     pub facing_left: bool,
 }
-
-#[derive(Resource)]
-pub struct BossAnimations {
-    pub walk: Handle<AnimationClip>,
-    pub air: Handle<AnimationClip>,
-    pub idle: Handle<AnimationClip>,
-    pub front_flip: Handle<AnimationClip>,
-    pub dive_roll: Handle<AnimationClip>,
-}

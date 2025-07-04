@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use crate::components::{Platform, FollowCamera};
+use crate::components::FollowCamera;
+use crate::plugins::physics::{Platform, PlatformType};
 
 pub fn setup_camera(mut commands: Commands) {
     // Camera - skybox will be added later by the skybox system
@@ -32,7 +33,10 @@ pub fn setup_platform(
         },
         RigidBody::Fixed,
         Collider::cuboid(25.0, 0.25, 2.5),
-        Platform,
+        Platform {
+            platform_type: PlatformType::Ground,
+            is_active: true,
+        },
     ));
 
     // Create additional floating platforms
@@ -71,7 +75,10 @@ pub fn setup_platform(
             },
             RigidBody::Fixed,
             Collider::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5),
-            Platform,
+            Platform {
+                platform_type: PlatformType::Floating,
+                is_active: true,
+            },
         ));
     }
 }
