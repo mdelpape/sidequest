@@ -36,11 +36,11 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn update_camera_follow(
-    boss_query: Query<&Transform, (With<Boss>, Without<FollowCamera>)>,
-    mut camera_query: Query<(&mut Transform, &FollowCamera, &mut CameraShake), (Without<Boss>, With<FollowCamera>)>,
+    player_query: Query<&Transform, (With<Player>, Without<FollowCamera>)>,
+    mut camera_query: Query<(&mut Transform, &FollowCamera, &mut CameraShake), (Without<Player>, With<FollowCamera>)>,
     time: Res<Time>,
 ) {
-    let boss_transform = if let Ok(transform) = boss_query.get_single() {
+    let player_transform = if let Ok(transform) = player_query.get_single() {
         transform
     } else {
         return;
@@ -48,8 +48,8 @@ fn update_camera_follow(
 
     for (mut camera_transform, follow_camera, mut shake) in camera_query.iter_mut() {
         let target_position = Vec3::new(
-            boss_transform.translation.x + follow_camera.offset.x,
-            boss_transform.translation.y + follow_camera.offset.y,
+            player_transform.translation.x + follow_camera.offset.x,
+            player_transform.translation.y + follow_camera.offset.y,
             camera_transform.translation.z,
         );
 

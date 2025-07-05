@@ -3,7 +3,7 @@ use bevy_rapier3d::prelude::*;
 use crate::{
     components::*,
     events::*,
-    resources::{GameStats, BossAnimations},
+    resources::{GameStats, PlayerAnimations},
     states::*,
 };
 
@@ -41,7 +41,7 @@ fn spawn_player(
         GravityScale(1.0),
         LockedAxes::ROTATION_LOCKED,
         Friction {
-            coefficient: 0.7,
+            coefficient: 0.3,
             combine_rule: CoefficientCombineRule::Min,
         },
         Restitution {
@@ -52,7 +52,7 @@ fn spawn_player(
             linear_damping: 0.5,
             angular_damping: 1.0,
         },
-        Boss {
+        Player {
             speed: 5.0,
             is_moving: false,
             is_grounded: false,
@@ -86,30 +86,30 @@ fn spawn_player(
 
 fn handle_player_movement(
     mut move_events: EventReader<PlayerMoveEvent>,
-    mut player_query: Query<(&mut Transform, &mut Velocity, &mut Boss)>,
+    mut player_query: Query<(&mut Transform, &mut Velocity, &mut Player)>,
 ) {
     for event in move_events.read() {
-        if let Ok((mut transform, mut velocity, mut boss)) = player_query.get_mut(event.entity) {
-            if boss.is_front_flipping || boss.is_dive_rolling {
+        if let Ok((mut transform, mut velocity, mut player)) = player_query.get_mut(event.entity) {
+            if player.is_front_flipping || player.is_dive_rolling {
                 continue;
             }
 
             let direction = event.direction.x;
-            boss.is_moving = direction != 0.0;
+            player.is_moving = direction != 0.0;
 
             if direction < 0.0 {
-                boss.facing_left = true;
+                player.facing_left = true;
                 transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI);
             } else if direction > 0.0 {
-                boss.facing_left = false;
+                player.facing_left = false;
                 transform.rotation = Quat::from_rotation_y(0.0);
             }
 
-            velocity.linvel.x = direction * boss.speed;
+            velocity.linvel.x = direction * player.speed;
 
             if direction == 0.0 {
                 // Apply strong friction to stop horizontal movement immediately
-                if boss.is_grounded {
+                if player.is_grounded {
                     velocity.linvel.x *= 0.07; // Much stronger friction when grounded
                 } else {
                     velocity.linvel.x *= 0.95; // Lighter friction when in air
@@ -121,12 +121,12 @@ fn handle_player_movement(
 
 fn handle_player_jump(
     mut jump_events: EventReader<PlayerJumpEvent>,
-    mut player_query: Query<(&mut Velocity, &Boss)>,
+    mut player_query: Query<(&mut Velocity, &Player)>,
     mut stats: ResMut<GameStats>,
 ) {
     for event in jump_events.read() {
-        if let Ok((mut velocity, boss)) = player_query.get_mut(event.entity) {
-            if boss.is_grounded {
+        if let Ok((mut velocity, player)) = player_query.get_mut(event.entity) {
+            if player.is_grounded {
                 velocity.linvel.y = 8.0;
                 stats.jump_count += 1;
                 info!("Player jumped! Total jumps: {}", stats.jump_count);
@@ -137,20 +137,20 @@ fn handle_player_jump(
 
 fn handle_player_flip(
     mut flip_events: EventReader<PlayerFlipEvent>,
-    mut player_query: Query<(&mut Boss, &Transform)>,
+    mut player_query: Query<(&mut Player, &Transform)>,
     mut stats: ResMut<GameStats>,
 ) {
     for event in flip_events.read() {
-        if let Ok((mut boss, _transform)) = player_query.get_mut(event.entity) {
-            if !boss.is_grounded {
+        if let Ok((mut player, _transform)) = player_query.get_mut(event.entity) {
+            if !player.is_grounded {
                 continue;
             }
 
             match event.flip_type {
                 FlipType::Front => {
-                    if !boss.is_front_flipping {
-                        boss.is_front_flipping = true;
-                        boss.flip_direction = if boss.facing_left {
+                    if !player.is_front_flipping {
+                        player.is_front_flipping = true;
+                        player.flip_direction = if player.facing_left {
                             Vec3::new(-0.5, 0.0, 0.0)
                         } else {
                             Vec3::new(0.5, 0.0, 0.0)
@@ -160,9 +160,9 @@ fn handle_player_flip(
                     }
                 }
                 FlipType::Dive => {
-                    if !boss.is_dive_rolling {
-                        boss.is_dive_rolling = true;
-                        boss.flip_direction = if boss.facing_left {
+                    if !player.is_dive_rolling {
+                        player.is_dive_rolling = true;
+                        player.flip_direction = if player.facing_left {
                             Vec3::new(-0.5, 0.0, 0.0)
                         } else {
                             Vec3::new(0.5, 0.0, 0.0)
@@ -177,53 +177,53 @@ fn handle_player_flip(
 }
 
 fn update_player_state(
-    mut player_query: Query<(&mut Velocity, &Boss)>,
+    mut player_query: Query<(&mut Velocity, &Player)>,
 ) {
-    for (mut velocity, boss) in player_query.iter_mut() {
-        if boss.is_front_flipping {
-            velocity.linvel.x = boss.flip_direction.x * boss.speed * 1.5;
-        } else if boss.is_dive_rolling {
-            velocity.linvel.x = boss.flip_direction.x * boss.speed * 2.0;
+    for (mut velocity, player) in player_query.iter_mut() {
+        if player.is_front_flipping {
+            velocity.linvel.x = player.flip_direction.x * player.speed * 1.5;
+        } else if player.is_dive_rolling {
+            velocity.linvel.x = player.flip_direction.x * player.speed * 2.0;
         }
     }
 }
 
 fn handle_player_animation(
-    mut player_query: Query<(&mut Boss, &Velocity)>,
+    mut player_query: Query<(&mut Player, &Velocity)>,
     mut animation_players: Query<&mut AnimationPlayer>,
-    animations: Res<BossAnimations>,
+    animations: Res<PlayerAnimations>,
 ) {
-    for (mut boss, velocity) in player_query.iter_mut() {
+    for (mut player, velocity) in player_query.iter_mut() {
         // Use both the is_moving flag and velocity to determine if actually moving
-        let is_actually_moving = boss.is_moving && velocity.linvel.x.abs() > 0.1;
+        let is_actually_moving = player.is_moving && velocity.linvel.x.abs() > 0.1;
 
-        for mut player in animation_players.iter_mut() {
-            if boss.is_front_flipping {
-                player.play(animations.front_flip.clone());
-                if player.is_finished() {
-                    boss.is_front_flipping = false;
+        for mut animation_player in animation_players.iter_mut() {
+            if player.is_front_flipping {
+                animation_player.play(animations.front_flip.clone());
+                if animation_player.is_finished() {
+                    player.is_front_flipping = false;
                 }
-            } else if boss.is_dive_rolling {
-                player.play(animations.dive_roll.clone());
-                if player.is_finished() {
-                    boss.is_dive_rolling = false;
+            } else if player.is_dive_rolling {
+                animation_player.play(animations.dive_roll.clone());
+                if animation_player.is_finished() {
+                    player.is_dive_rolling = false;
                 }
-            } else if !boss.is_grounded {
-                player.play(animations.air.clone()).repeat();
+            } else if !player.is_grounded {
+                animation_player.play(animations.air.clone()).repeat();
             } else if is_actually_moving {
-                player.play(animations.walk.clone()).repeat();
+                animation_player.play(animations.walk.clone()).repeat();
             } else {
-                player.play(animations.idle.clone()).repeat();
+                animation_player.play(animations.idle.clone()).repeat();
             }
         }
     }
 }
 
 fn check_player_grounded(
-    mut player_query: Query<(Entity, &Transform, &mut Boss)>,
+    mut player_query: Query<(Entity, &Transform, &mut Player)>,
     rapier_context: Res<RapierContext>,
 ) {
-    for (entity, transform, mut boss) in player_query.iter_mut() {
+    for (entity, transform, mut player) in player_query.iter_mut() {
         let ray_pos = transform.translation;
         let ray_dir = Vec3::new(0.0, -1.0, 0.0);
         let max_distance = 1.0;
@@ -236,11 +236,11 @@ fn check_player_grounded(
             QueryFilter::default().exclude_rigid_body(entity),
         );
 
-        let was_grounded = boss.is_grounded;
-        boss.is_grounded = ground_hit.is_some();
+        let was_grounded = player.is_grounded;
+        player.is_grounded = ground_hit.is_some();
 
         // Track landing events
-        if !was_grounded && boss.is_grounded {
+        if !was_grounded && player.is_grounded {
             // Player just landed
             info!("Player landed!");
         }

@@ -1,19 +1,19 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use crate::components::Boss;
+use crate::components::Player;
 use crate::plugins::physics::Platform;
-use crate::resources::BossAnimations;
+use crate::resources::PlayerAnimations;
 
-pub fn spawn_boss(
+pub fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut done: Local<bool>,
 ) {
     if !*done {
-        // Load the boss model
+        // Load the player model
         let scene = asset_server.load("boss3.glb#Scene0");
 
-        // Spawn the boss with physics components
+        // Spawn the player with physics components
         commands.spawn((
             Transform::from_xyz(0.0, 7.0, 0.0),
             GlobalTransform::default(),
@@ -37,7 +37,7 @@ pub fn spawn_boss(
                 linear_damping: 0.5,
                 angular_damping: 1.0,
             },
-            Boss {
+            Player {
                 speed: 5.0,
                 is_moving: false,
                 is_grounded: false,
@@ -56,7 +56,7 @@ pub fn spawn_boss(
                         .with_scale(Vec3::splat(1.0)),
                     ..default()
                 },
-                Name::new("Boss Model"), // Add a name for debugging
+                Name::new("Player Model"), // Add a name for debugging
             ));
         });
 
@@ -64,57 +64,26 @@ pub fn spawn_boss(
     }
 }
 
-pub fn move_boss(
+pub fn move_player(
     keyboard: Res<Input<KeyCode>>,
-    mut boss_query: Query<(Entity, &mut Transform, &mut Velocity, &mut Boss), Without<Platform>>,
+    mut player_query: Query<(Entity, &mut Transform, &mut Velocity, &mut Player), Without<Platform>>,
     rapier_context: Res<RapierContext>,
 ) {
-    if let Ok((entity, mut transform, mut velocity, mut boss)) = boss_query.get_single_mut() {
-        if boss.is_front_flipping {
+    if let Ok((entity, mut transform, mut velocity, mut player)) = player_query.get_single_mut() {
+        if player.is_front_flipping {
             // During front flip, only control horizontal movement
-            velocity.linvel.x = boss.flip_direction.x * boss.speed * 1.5; // Keep horizontal movement
+            velocity.linvel.x = player.flip_direction.x * player.speed * 1.5; // Keep horizontal movement
             // Let gravity handle vertical movement naturally
             return; // Skip other movement processing
         }
 
-        if boss.is_dive_rolling {
+        if player.is_dive_rolling {
             // During dive roll, maintain horizontal momentum but allow gravity
-            velocity.linvel.x = boss.flip_direction.x * boss.speed * 2.0; // Faster than front flip
+            velocity.linvel.x = player.flip_direction.x * player.speed * 2.0; // Faster than front flip
             return; // Skip other movement processing
         }
 
-        let mut direction = 0.0;
-
-        // Horizontal movement
-        if keyboard.pressed(KeyCode::A) {
-            direction -= 1.0;
-            boss.is_moving = true;
-            boss.facing_left = true;
-            transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI);
-        }
-        if keyboard.pressed(KeyCode::D) {
-            direction += 1.0;
-            boss.is_moving = true;
-            boss.facing_left = false;
-            transform.rotation = Quat::from_rotation_y(0.0);
-        }
-
-        if direction == 0.0 {
-            boss.is_moving = false;
-            // Apply strong friction to stop horizontal movement immediately
-            if boss.is_grounded {
-                velocity.linvel.x *= 0.07; // Much stronger friction when grounded
-            } else {
-                velocity.linvel.x *= 0.95; // Lighter friction when in air
-            }
-        }
-
-        // Update horizontal velocity
-        if direction != 0.0 {
-            velocity.linvel.x = direction * boss.speed;
-        }
-
-        // Check if the boss is on the ground or a platform
+        // First, do all collision detection
         let ray_pos = transform.translation;
         let ray_dir = Vec3::new(0.0, -1.0, 0.0);
         let max_distance = 1.0;
@@ -130,18 +99,48 @@ pub fn move_boss(
         );
 
         // Update grounded state
-        boss.is_grounded = ground_hit.is_some();
+        player.is_grounded = ground_hit.is_some();
+
+        // Now handle horizontal movement - let physics handle collisions naturally
+        let mut direction = 0.0;
+
+        // Get input direction
+        if keyboard.pressed(KeyCode::A) {
+            direction -= 1.0;
+            player.is_moving = true;
+            player.facing_left = true;
+            transform.rotation = Quat::from_rotation_y(-std::f32::consts::PI);
+        }
+        if keyboard.pressed(KeyCode::D) {
+            direction += 1.0;
+            player.is_moving = true;
+            player.facing_left = false;
+            transform.rotation = Quat::from_rotation_y(0.0);
+        }
+
+        if direction == 0.0 {
+            player.is_moving = false;
+            // Apply strong friction to stop horizontal movement immediately
+            if player.is_grounded {
+                velocity.linvel.x *= 0.07; // Much stronger friction when grounded
+            } else {
+                velocity.linvel.x *= 0.95; // Lighter friction when in air
+            }
+        } else {
+            // Apply movement directly - let physics engine handle collisions
+            velocity.linvel.x = direction * player.speed;
+        }
 
         // Handle jumping when on ground
-        if boss.is_grounded && keyboard.just_pressed(KeyCode::Space) {
-            velocity.linvel.y = 8.0; // Jump velocity
+        if player.is_grounded && keyboard.just_pressed(KeyCode::Space) {
+            velocity.linvel.y = 10.0; // Jump velocity
         }
 
         // Handle front flip trigger
-        if keyboard.just_pressed(KeyCode::W) && !boss.is_front_flipping && boss.is_grounded {
-            boss.is_front_flipping = true;
+        if keyboard.just_pressed(KeyCode::W) && !player.is_front_flipping && player.is_grounded {
+            player.is_front_flipping = true;
 
-            boss.flip_direction = if boss.facing_left {
+            player.flip_direction = if player.facing_left {
                 Vec3::new(-0.5, 0.0, 0.0)
             } else {
                 Vec3::new(0.5, 0.0, 0.0)
@@ -150,10 +149,10 @@ pub fn move_boss(
         }
 
         // Handle dive roll trigger
-        if keyboard.just_pressed(KeyCode::S) && !boss.is_dive_rolling && boss.is_grounded {
-            boss.is_dive_rolling = true;
+        if keyboard.just_pressed(KeyCode::S) && !player.is_dive_rolling && player.is_grounded {
+            player.is_dive_rolling = true;
 
-            boss.flip_direction = if boss.facing_left {
+            player.flip_direction = if player.facing_left {
                 Vec3::new(-0.5, 0.0, 0.0) // Faster horizontal movement for dive roll
             } else {
                 Vec3::new(0.5, 0.0, 0.0)
@@ -163,38 +162,38 @@ pub fn move_boss(
     }
 }
 
-// This system controls the animation state based on boss movement
+// This system controls the animation state based on player movement
 pub fn control_animation(
-    mut boss_query: Query<(&mut Boss, &Velocity)>,
+    mut player_query: Query<(&mut Player, &Velocity)>,
     mut animation_players: Query<&mut AnimationPlayer>,
-    animations: Res<BossAnimations>,
+    animations: Res<PlayerAnimations>,
 ) {
-    let (mut boss, velocity) = if let Ok(data) = boss_query.get_single_mut() {
+    let (mut player, velocity) = if let Ok(data) = player_query.get_single_mut() {
         data
     } else {
         return;
     };
 
     // Use both the is_moving flag and velocity to determine if actually moving
-    let is_actually_moving = boss.is_moving && velocity.linvel.x.abs() > 0.1;
+    let is_actually_moving = player.is_moving && velocity.linvel.x.abs() > 0.1;
 
-    for mut player in animation_players.iter_mut() {
-        if boss.is_front_flipping {
-            player.play(animations.front_flip.clone());
-            if player.is_finished() {
-                boss.is_front_flipping = false;
+    for mut animation_player in animation_players.iter_mut() {
+        if player.is_front_flipping {
+            animation_player.play(animations.front_flip.clone());
+            if animation_player.is_finished() {
+                player.is_front_flipping = false;
             }
-        } else if boss.is_dive_rolling {
-            player.play(animations.dive_roll.clone());
-            if player.is_finished() {
-                boss.is_dive_rolling = false;
+        } else if player.is_dive_rolling {
+            animation_player.play(animations.dive_roll.clone());
+            if animation_player.is_finished() {
+                player.is_dive_rolling = false;
             }
-        } else if !boss.is_grounded {
-            player.play(animations.air.clone()).repeat();
+        } else if !player.is_grounded {
+            animation_player.play(animations.air.clone()).repeat();
         } else if is_actually_moving {
-            player.play(animations.walk.clone()).repeat();
+            animation_player.play(animations.walk.clone()).repeat();
         } else {
-            player.play(animations.idle.clone()).repeat();
+            animation_player.play(animations.idle.clone()).repeat();
         }
     }
 }

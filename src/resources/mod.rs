@@ -49,17 +49,32 @@ pub struct PerformanceMetrics {
 
 // Asset Management
 #[derive(Resource)]
-pub struct AssetHandles {
-    pub boss_scene: Handle<Scene>,
-    pub boss_animations: BossAnimations,
+pub struct GameAssets {
+    pub player_scene: Handle<Scene>,
+    pub player_animations: PlayerAnimations,
     pub skybox_texture: Handle<Image>,
     pub audio_jump: Handle<AudioSource>,
     pub audio_land: Handle<AudioSource>,
     pub audio_flip: Handle<AudioSource>,
 }
 
-#[derive(Resource)]
-pub struct BossAnimations {
+impl Default for GameAssets {
+    fn default() -> Self {
+        Self {
+            player_scene: Handle::default(),
+            player_animations: PlayerAnimations::default(),
+            skybox_texture: Handle::default(),
+            audio_jump: Handle::default(),
+            audio_land: Handle::default(),
+            audio_flip: Handle::default(),
+        }
+    }
+}
+
+
+
+#[derive(Resource, Default)]
+pub struct PlayerAnimations {
     pub walk: Handle<AnimationClip>,
     pub air: Handle<AnimationClip>,
     pub idle: Handle<AnimationClip>,

@@ -32,9 +32,15 @@ fn handle_debug_input(
 
     if keyboard.just_pressed(KeyCode::F4) {
         config.show_colliders = !config.show_colliders;
-        debug_events.send(DebugEvent {
-            message: format!("Show colliders: {}", config.show_colliders),
-        });
+        if config.show_colliders {
+            debug_events.send(DebugEvent {
+                message: "Colliders ON: GREEN = High friction (tops), ORANGE = Low friction (sides)".to_string(),
+            });
+        } else {
+            debug_events.send(DebugEvent {
+                message: "Colliders OFF".to_string(),
+            });
+        }
     }
 
     if keyboard.just_pressed(KeyCode::F5) {
@@ -51,9 +57,9 @@ fn handle_player_input(
     mut player_events: EventWriter<PlayerMoveEvent>,
     mut jump_events: EventWriter<PlayerJumpEvent>,
     mut flip_events: EventWriter<PlayerFlipEvent>,
-    boss_query: Query<Entity, With<crate::Boss>>,
+    player_query: Query<Entity, With<crate::Player>>,
 ) {
-    if let Ok(player_entity) = boss_query.get_single() {
+    if let Ok(player_entity) = player_query.get_single() {
         // Movement input
         let mut direction = Vec3::ZERO;
 

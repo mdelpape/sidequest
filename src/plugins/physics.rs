@@ -35,21 +35,42 @@ fn setup_platforms(
             ..default()
         },
         RigidBody::Fixed,
-        Collider::cuboid(25.0, 0.25, 2.5),
-        Friction {
-            coefficient: 0.8,
-            combine_rule: CoefficientCombineRule::Max,
-        },
-        Restitution {
-            coefficient: 0.0,
-            combine_rule: CoefficientCombineRule::Min,
-        },
+        // No collider on the main entity
         Platform {
             platform_type: PlatformType::Ground,
             is_active: true,
         },
         Name::new("GroundPlatform"),
-    ));
+    ))
+    .with_children(|parent| {
+        // Top surface with friction for walking
+        parent.spawn((
+            TransformBundle::from_transform(Transform::from_xyz(0.0, 0.2, 0.0)),
+            Collider::round_cuboid(25.0, 0.05, 2.5, 0.05),
+            Friction {
+                coefficient: 0.8,
+                combine_rule: CoefficientCombineRule::Max,
+            },
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+        ));
+
+        // Side/bottom collider without friction
+        parent.spawn((
+            TransformBundle::from_transform(Transform::from_xyz(0.0, -0.1, 0.0)),
+            Collider::round_cuboid(25.0, 0.15, 2.5, 0.1),
+            Friction {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+        ));
+    });
 
     // Floating platforms configuration
     let platform_configs = vec![
@@ -94,21 +115,42 @@ fn setup_platforms(
                 ..default()
             },
             RigidBody::Fixed,
-            Collider::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5),
-            Friction {
-                coefficient: 0.8,
-                combine_rule: CoefficientCombineRule::Max,
-            },
-            Restitution {
-                coefficient: 0.0,
-                combine_rule: CoefficientCombineRule::Min,
-            },
+            // No collider on the main entity
             Platform {
                 platform_type: platform_type.clone(),
                 is_active: true,
             },
             Name::new(format!("Platform_{}", i)),
-        ));
+        ))
+        .with_children(|parent| {
+            // Top surface with friction for walking
+            parent.spawn((
+                TransformBundle::from_transform(Transform::from_xyz(0.0, size.y * 0.3, 0.0)),
+                Collider::round_cuboid(size.x * 0.5, size.y * 0.1, size.z * 0.5, 0.05),
+                Friction {
+                    coefficient: 0.8,
+                    combine_rule: CoefficientCombineRule::Max,
+                },
+                Restitution {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                },
+            ));
+
+            // Side/bottom collider without friction
+            parent.spawn((
+                TransformBundle::from_transform(Transform::from_xyz(0.0, -size.y * 0.2, 0.0)),
+                Collider::round_cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5, 0.1),
+                Friction {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                },
+                Restitution {
+                    coefficient: 0.0,
+                    combine_rule: CoefficientCombineRule::Min,
+                },
+            ));
+        });
     }
 
     info!("Platforms setup complete");
@@ -134,7 +176,7 @@ fn setup_physics_world(mut commands: Commands) {
 
 fn handle_platform_interactions(
     platform_query: Query<(&Platform, &Transform), With<Platform>>,
-    player_query: Query<&Transform, (With<Boss>, Without<Platform>)>,
+    player_query: Query<&Transform, (With<Player>, Without<Platform>)>,
     mut stats: ResMut<crate::resources::GameStats>,
 ) {
     if let Ok(player_transform) = player_query.get_single() {
@@ -155,10 +197,15 @@ fn handle_platform_interactions(
 fn update_physics_debug(
     config: Res<crate::resources::GameConfig>,
 ) {
-    // Physics debug rendering would need RapierDebugRenderPlugin to be added to main.rs
-    // For now, just log when debug mode changes
-    if config.is_changed() && config.physics_debug {
-        info!("Physics debug mode: {}", config.physics_debug);
+    // Log when debug mode changes
+    if config.is_changed() {
+        if config.show_colliders {
+            info!("Collider debug visualization: ON (Press F4 to toggle)");
+        }
+
+        if config.physics_debug {
+            info!("Physics debug mode: ON (Press F5 to toggle)");
+        }
     }
 }
 

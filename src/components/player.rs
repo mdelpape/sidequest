@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct Boss {
+pub struct Player {
     pub speed: f32,
     pub is_moving: bool,
     pub is_grounded: bool,

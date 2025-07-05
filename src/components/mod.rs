@@ -1,9 +1,9 @@
 mod camera;
-mod boss;
+mod player;
 mod light;
 mod skybox;
 
 pub use camera::*;
-pub use boss::*;
+pub use player::*;
 pub use light::*;
 pub use skybox::*;

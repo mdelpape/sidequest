@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::{Collider, Friction};
 use crate::{
     events::*,
     resources::*,
@@ -29,9 +30,10 @@ fn handle_debug_events(
 fn update_debug_display(
     config: Res<GameConfig>,
     mut gizmos: Gizmos,
-    player_query: Query<&Transform, With<crate::Boss>>,
+    player_query: Query<&Transform, With<crate::Player>>,
+    collider_query: Query<(&GlobalTransform, &Collider, &Friction), Without<crate::Player>>,
 ) {
-    if !config.debug_mode {
+    if !config.debug_mode && !config.show_colliders {
         return;
     }
 
@@ -40,7 +42,25 @@ fn update_debug_display(
         gizmos.sphere(player_transform.translation, Quat::IDENTITY, 0.5, Color::RED);
     }
 
-    // You can add more debug visualizations here
+    // Draw collider boxes with different colors based on friction
+    if config.show_colliders {
+        for (global_transform, _collider, friction) in collider_query.iter() {
+            let color = if friction.coefficient > 0.5 {
+                Color::GREEN // High friction (top surfaces)
+            } else {
+                Color::ORANGE // Low/no friction (side surfaces)
+            };
+
+            let world_transform = Transform {
+                translation: global_transform.translation(),
+                rotation: global_transform.to_scale_rotation_translation().1,
+                scale: global_transform.to_scale_rotation_translation().0,
+            };
+
+            // Draw collider wireframe - simplified approach
+            gizmos.cuboid(world_transform, color);
+        }
+    }
 }
 
 fn handle_debug_commands(

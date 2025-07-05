@@ -1,10 +1,10 @@
-mod boss;
-mod lighting;
+mod player;
+pub mod lighting;
 mod setup;
 mod camera;
 mod skybox;
 
-pub use boss::*;
+pub use player::*;
 pub use lighting::*;
 pub use setup::*;
 pub use camera::*;

@@ -13,6 +13,7 @@ fn main() {
                 ..default()
             }),
             RapierPhysicsPlugin::<NoUserData>::default(),
+            RapierDebugRenderPlugin::default(),
             FrameTimeDiagnosticsPlugin,
             GamePlugin,
         ))
@@ -21,7 +22,7 @@ fn main() {
 }
 
 fn init_animations(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(BossAnimations {
+    commands.insert_resource(PlayerAnimations {
         walk: asset_server.load("boss3.glb#Animation9"),
         air: asset_server.load("boss3.glb#Animation0"),
         idle: asset_server.load("boss3.glb#Animation6"),
