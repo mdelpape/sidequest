@@ -92,6 +92,13 @@ pub struct InputConfig {
     pub dive_roll: KeyCode,
     pub pause: KeyCode,
     pub debug_toggle: KeyCode,
+    pub camera_toggle: KeyCode,
+    pub camera_forward: KeyCode,
+    pub camera_backward: KeyCode,
+    pub camera_left: KeyCode,
+    pub camera_right: KeyCode,
+    pub camera_up: KeyCode,
+    pub camera_down: KeyCode,
 }
 
 impl Default for InputConfig {
@@ -104,6 +111,13 @@ impl Default for InputConfig {
             dive_roll: KeyCode::S,
             pause: KeyCode::Escape,
             debug_toggle: KeyCode::F3,
+            camera_toggle: KeyCode::C,
+            camera_forward: KeyCode::I,
+            camera_backward: KeyCode::K,
+            camera_left: KeyCode::J,
+            camera_right: KeyCode::L,
+            camera_up: KeyCode::U,
+            camera_down: KeyCode::O,
         }
     }
 }
