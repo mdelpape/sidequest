@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use bevy_mod_rounded_box::{RoundedBox, BoxMeshOptions};
 use crate::{
     components::*,
     states::*,
@@ -29,8 +30,13 @@ fn setup_platforms(
     // Main ground platform
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(50.0, 0.5, 5.0))),
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            mesh: meshes.add(Mesh::from(RoundedBox {
+                size: Vec3::new(50.0, 0.5, 5.0),
+                radius: 0.1,
+                subdivisions: 8,
+                options: BoxMeshOptions::DEFAULT,
+            })),
+            material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
             transform: Transform::from_xyz(0.0, -0.25, 0.0),
             ..default()
         },
@@ -99,17 +105,22 @@ fn setup_platforms(
 
     for (i, (position, size, platform_type)) in platform_configs.iter().enumerate() {
         let color = match platform_type {
-            PlatformType::Ground => Color::rgb(0.3, 0.5, 0.3),
-            PlatformType::Floating => Color::rgb(0.4, 0.6, 0.4),
-            PlatformType::Small => Color::rgb(0.5, 0.7, 0.5),
-            PlatformType::SteppingStone => Color::rgb(0.6, 0.8, 0.6),
-            PlatformType::Bridge => Color::rgb(0.7, 0.9, 0.7),
+            PlatformType::Ground => Color::rgb(0.5, 0.5, 0.5),
+            PlatformType::Floating => Color::rgb(0.5, 0.5, 0.5),
+            PlatformType::Small => Color::rgb(0.6, 0.6, 0.6),
+            PlatformType::SteppingStone => Color::rgb(0.4, 0.4, 0.4),
+            PlatformType::Bridge => Color::rgb(0.7, 0.7, 0.7),
             PlatformType::Moving => Color::rgb(0.8, 0.4, 0.4),
         };
 
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(size.x, size.y, size.z))),
+                mesh: meshes.add(Mesh::from(RoundedBox {
+                    size: *size,
+                    radius: 0.05,
+                    subdivisions: 6,
+                    options: BoxMeshOptions::DEFAULT,
+                })),
                 material: materials.add(color.into()),
                 transform: Transform::from_translation(*position),
                 ..default()

@@ -26,13 +26,17 @@ pub fn setup_platform(
     // Main ground platform - extended length
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(50.0, 0.5, 5.0))), // Wider and deeper platform
-            material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            mesh: meshes.add(Mesh::from(shape::Capsule {
+                radius: 2.5,
+                depth: 45.0,
+                ..default()
+            })), // Rounded platform
+            material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
             transform: Transform::from_xyz(0.0, -0.25, 0.0),
             ..default()
         },
         RigidBody::Fixed,
-        Collider::cuboid(25.0, 0.25, 2.5),
+        Collider::capsule_y(2.5, 22.5),
         Platform {
             platform_type: PlatformType::Ground,
             is_active: true,
@@ -66,15 +70,23 @@ pub fn setup_platform(
 
     // Spawn all additional platforms
     for (position, size) in platform_configs {
+        let radius = size.z * 0.5; // Use half the depth as radius for rounded ends
+        let depth = size.x - size.z; // Adjust depth to account for rounded ends
+        let depth = if depth > 0.0 { depth } else { 0.1 }; // Ensure minimum depth
+
         commands.spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(size.x, size.y, size.z))),
-                material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+                mesh: meshes.add(Mesh::from(shape::Capsule {
+                    radius,
+                    depth,
+                    ..default()
+                })),
+                material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
                 transform: Transform::from_translation(position),
                 ..default()
             },
             RigidBody::Fixed,
-            Collider::cuboid(size.x * 0.5, size.y * 0.5, size.z * 0.5),
+            Collider::capsule_y(radius, depth * 0.5),
             Platform {
                 platform_type: PlatformType::Floating,
                 is_active: true,

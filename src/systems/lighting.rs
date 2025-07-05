@@ -8,17 +8,17 @@ pub fn setup_lighting(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Ambient light - keep it low for dramatic lamp post effect
-    // commands.insert_resource(AmbientLight {
-    //     color: Color::rgb(0.4, 0.4, 0.6), // Cool nighttime ambient
-    //     brightness: 0.00, // Very low ambient light
-    // });
+    commands.insert_resource(AmbientLight {
+        color: Color::rgb(0.4, 0.4, 0.6), // Cool nighttime ambient
+        brightness: 0.02, // Very low ambient light
+    });
 
     // Create detailed lamp posts positioned around the scene
     let lamp_post_positions = vec![
         // Vec3::new(-8.0, 0.0, 2.0),   // Left lamp post
         // Vec3::new(8.0, 0.0, 2.0),    // Right lamp post
-        // Vec3::new(-15.0, 0.0, -1.0), // Far left lamp post
-        // Vec3::new(15.0, 0.0, -1.0),  // Far right lamp post
+        Vec3::new(-15.0, 0.0, -1.0), // Far left lamp post
+        Vec3::new(15.0, 0.0, -1.0),  // Far right lamp post
         Vec3::new(0.0, 0.0, 5.0),    // Center back lamp post
     ];
 

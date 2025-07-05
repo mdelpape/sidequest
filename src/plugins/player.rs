@@ -20,6 +20,7 @@ impl Plugin for PlayerPlugin {
                 update_player_state,
                 handle_player_animation,
                 check_player_grounded,
+                manage_dive_roll_hitbox,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -37,6 +38,7 @@ fn spawn_player(
         GlobalTransform::default(),
         RigidBody::Dynamic,
         Collider::capsule_y(0.4, 0.4),
+        MainCollider,
         Velocity::default(),
         GravityScale(1.0),
         LockedAxes::ROTATION_LOCKED,
@@ -82,6 +84,44 @@ fn spawn_player(
     });
 
     info!("Player spawned at {:?}", spawn_position);
+}
+
+fn manage_dive_roll_hitbox(
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &Player, &mut Collider), With<MainCollider>>,
+    dive_roll_query: Query<Entity, With<DiveRollCollider>>,
+) {
+    if let Ok((player_entity, player, mut main_collider)) = player_query.get_single_mut() {
+        let has_dive_roll_collider = !dive_roll_query.is_empty();
+
+        if player.is_dive_rolling && !has_dive_roll_collider {
+            // Start dive roll: disable main collider and spawn dive roll collider
+            *main_collider = Collider::ball(0.0001); // Make main collider tiny but keep it
+
+            // Spawn dive roll collider as a child entity at the player's feet
+            commands.entity(player_entity).with_children(|parent| {
+                parent.spawn((
+                    TransformBundle::from_transform(Transform::from_xyz(0.0, -0.3, 0.0)),
+                    Collider::capsule_y(0.15, 0.2), // Smaller capsule: radius 0.15, height 0.2
+                    DiveRollCollider,
+                    Name::new("DiveRollCollider"),
+                ));
+            });
+
+            info!("Dive roll hitbox activated - smaller collider at feet");
+
+        } else if !player.is_dive_rolling && has_dive_roll_collider {
+            // End dive roll: remove dive roll collider and restore main collider
+            for dive_roll_entity in dive_roll_query.iter() {
+                commands.entity(dive_roll_entity).despawn();
+            }
+
+            // Restore main collider
+            *main_collider = Collider::capsule_y(0.4, 0.4);
+
+            info!("Dive roll hitbox deactivated - main collider restored");
+        }
+    }
 }
 
 fn handle_player_movement(

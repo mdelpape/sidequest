@@ -14,3 +14,4 @@ opt-level = 3
 [dependencies]
 bevy = { version = "0.12", features = ["jpeg", "png"] }
 bevy_rapier3d = "0.23.0" # Adding physics engine
+bevy_mod_rounded_box = "0.6" # For rounded rectangular platforms

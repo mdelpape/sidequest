@@ -14,9 +14,9 @@ impl Plugin for RenderingPlugin {
                 // setup_skybox,
                 setup_lighting,
             ));
-            // Temporarily disabled follow light
+            // Temporarily disabled follow light and skybox
             // .add_systems(Update, (
-            //     // reinterpret_cubemap,
+            //     reinterpret_cubemap,
             //     update_light_position,
             // ).run_if(in_state(GameState::Playing)));
     }

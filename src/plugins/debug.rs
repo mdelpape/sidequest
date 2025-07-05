@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_rapier3d::prelude::{Collider, Friction};
 use crate::{
     events::*,
@@ -11,10 +12,12 @@ pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_systems(OnEnter(GameState::Playing), setup_fps_ui)
             .add_systems(Update, (
                 handle_debug_events,
                 update_debug_display,
                 handle_debug_commands,
+                update_fps_display,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -77,3 +80,50 @@ fn handle_debug_commands(
         });
     }
 }
+
+// Component for the FPS text entity
+#[derive(Component)]
+struct FpsText;
+
+fn setup_fps_ui(mut commands: Commands) {
+    // Create FPS counter UI
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                right: Val::Px(15.0),
+                top: Val::Px(15.0),
+                ..default()
+            },
+            ..default()
+        },
+    )).with_children(|parent| {
+        parent.spawn((
+            TextBundle::from_section(
+                "FPS: --",
+                TextStyle {
+                    font: default(),
+                    font_size: 20.0,
+                    color: Color::WHITE,
+                },
+            ).with_style(Style {
+                ..default()
+            }),
+            FpsText,
+        ));
+    });
+}
+
+fn update_fps_display(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
+    if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+        if let Some(value) = fps.smoothed() {
+            for mut text in query.iter_mut() {
+                text.sections[0].value = format!("FPS: {:.0}", value);
+            }
+        }
+    }
+}
+

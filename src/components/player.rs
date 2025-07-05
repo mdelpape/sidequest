@@ -10,3 +10,11 @@ pub struct Player {
     pub flip_direction: Vec3,
     pub facing_left: bool,
 }
+
+/// Marker component for the player's main collider
+#[derive(Component)]
+pub struct MainCollider;
+
+/// Marker component for the player's dive roll collider (smaller, at feet)
+#[derive(Component)]
+pub struct DiveRollCollider;
