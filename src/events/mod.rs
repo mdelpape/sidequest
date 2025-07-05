@@ -78,6 +78,14 @@ pub struct DebugEvent {
     pub message: String,
 }
 
+// Coin Events
+#[derive(Event)]
+pub struct CoinCollectedEvent {
+    pub coin_entity: Entity,
+    pub player_entity: Entity,
+    pub position: Vec3,
+}
+
 // Plugin to register all events
 pub struct EventsPlugin;
 
@@ -97,6 +105,7 @@ impl Plugin for EventsPlugin {
             .add_event::<AnimationStartEvent>()
             .add_event::<AnimationEndEvent>()
             .add_event::<SystemErrorEvent>()
-            .add_event::<DebugEvent>();
+            .add_event::<DebugEvent>()
+            .add_event::<CoinCollectedEvent>();
     }
 }

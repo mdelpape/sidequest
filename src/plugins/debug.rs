@@ -12,12 +12,16 @@ pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(GameState::Playing), setup_fps_ui)
+            .add_systems(OnEnter(GameState::Playing), (
+                setup_fps_ui,
+                setup_coin_counter_ui,
+            ))
             .add_systems(Update, (
                 handle_debug_events,
                 update_debug_display,
                 handle_debug_commands,
                 update_fps_display,
+                update_coin_counter_display,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -33,7 +37,7 @@ fn handle_debug_events(
 fn update_debug_display(
     config: Res<GameConfig>,
     mut gizmos: Gizmos,
-    player_query: Query<&Transform, With<crate::Player>>,
+    _player_query: Query<&Transform, With<crate::Player>>,
     collider_query: Query<(&GlobalTransform, &Collider, &Friction), Without<crate::Player>>,
 ) {
     if !config.debug_mode && !config.show_colliders {
@@ -75,6 +79,7 @@ fn handle_debug_commands(
         stats.jump_count = 0;
         stats.flip_count = 0;
         stats.play_time = 0.0;
+        stats.coins_collected = 0;
         debug_events.send(DebugEvent {
             message: "Stats reset".to_string(),
         });
@@ -84,6 +89,10 @@ fn handle_debug_commands(
 // Component for the FPS text entity
 #[derive(Component)]
 struct FpsText;
+
+// Component for the coin counter text entity
+#[derive(Component)]
+struct CoinCounterText;
 
 fn setup_fps_ui(mut commands: Commands) {
     // Create FPS counter UI
@@ -124,6 +133,44 @@ fn update_fps_display(
                 text.sections[0].value = format!("FPS: {:.0}", value);
             }
         }
+    }
+}
+
+fn setup_coin_counter_ui(mut commands: Commands) {
+    // Create coin counter UI in the top left
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(15.0),
+                top: Val::Px(15.0),
+                ..default()
+            },
+            ..default()
+        },
+    )).with_children(|parent| {
+        parent.spawn((
+            TextBundle::from_section(
+                "Coins: 0",
+                TextStyle {
+                    font: default(),
+                    font_size: 24.0,
+                    color: Color::rgb(1.0, 0.8, 0.0), // Gold color to match coins
+                },
+            ).with_style(Style {
+                ..default()
+            }),
+            CoinCounterText,
+        ));
+    });
+}
+
+fn update_coin_counter_display(
+    stats: Res<GameStats>,
+    mut query: Query<&mut Text, With<CoinCounterText>>,
+) {
+    for mut text in query.iter_mut() {
+        text.sections[0].value = format!("Coins: {}", stats.coins_collected);
     }
 }
 

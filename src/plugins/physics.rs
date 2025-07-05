@@ -4,6 +4,7 @@ use bevy_mod_rounded_box::{RoundedBox, BoxMeshOptions};
 use crate::{
     components::*,
     states::*,
+    events::*,
 };
 
 pub struct PhysicsPlugin;
@@ -18,6 +19,9 @@ impl Plugin for PhysicsPlugin {
             .add_systems(Update, (
                 handle_platform_interactions,
                 update_physics_debug,
+                handle_coin_collection,
+                animate_coins,
+                setup_coins_delayed,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -32,7 +36,7 @@ fn setup_platforms(
         PbrBundle {
             mesh: meshes.add(Mesh::from(RoundedBox {
                 size: Vec3::new(50.0, 0.5, 5.0),
-                radius: 0.1,
+                radius: 0.2,
                 subdivisions: 8,
                 options: BoxMeshOptions::DEFAULT,
             })),
@@ -51,6 +55,7 @@ fn setup_platforms(
         Platform {
             platform_type: PlatformType::Ground,
             is_active: true,
+            has_coin: false,
         },
         Name::new("GroundPlatform"),
     ))
@@ -201,7 +206,7 @@ fn setup_platforms(
             PbrBundle {
                 mesh: meshes.add(Mesh::from(RoundedBox {
                     size: *size,
-                    radius: 0.05,
+                    radius: 0.2,
                     subdivisions: 6,
                     options: BoxMeshOptions::DEFAULT,
                 })),
@@ -220,6 +225,7 @@ fn setup_platforms(
             Platform {
                 platform_type: platform_type.clone(),
                 is_active: true,
+                has_coin: false,
             },
             Name::new(format!("Platform_{}", i)),
         ))
@@ -275,6 +281,234 @@ fn setup_physics_world(mut commands: Commands) {
     info!("Physics world configured");
 }
 
+fn setup_coins(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut platform_query: Query<(Entity, &mut Platform, &Transform)>,
+) {
+    // Define which platforms should have coins (using indices for simplicity)
+    let coin_platform_indices = vec![
+        2, 5, 8, 12, 15, 18, 22, 25, 28, 32, 35, 38, 42, 45, 48, 52, 55, 58, 62, 65
+    ];
+
+    // Gold coin material
+    let coin_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(1.0, 0.8, 0.0), // Gold color
+        metallic: 0.9,
+        perceptual_roughness: 0.1,
+        reflectance: 0.8,
+        emissive: Color::rgb(0.2, 0.15, 0.0), // Slight glow
+        ..default()
+    });
+
+    // Coin mesh - cylinder to look like a coin
+    let coin_mesh = meshes.add(Mesh::from(shape::Cylinder {
+        radius: 0.3,
+        height: 0.1,
+        resolution: 16,
+        segments: 1,
+    }));
+
+    let platform_count = platform_query.iter().count();
+    info!("Found {} platforms for coin setup", platform_count);
+
+    let mut platform_index = 0;
+    for (platform_entity, mut platform, platform_transform) in platform_query.iter_mut() {
+        // Skip ground platform (index 0)
+        if platform_index == 0 {
+            platform_index += 1;
+            continue;
+        }
+
+        // Check if this platform should have a coin
+        if coin_platform_indices.contains(&platform_index) {
+            platform.has_coin = true;
+
+                        // Spawn coin above the platform
+            let coin_base_position = platform_transform.translation + Vec3::new(0.0, 1.5, 0.0);
+
+            let _coin_entity = commands.spawn((
+                PbrBundle {
+                    mesh: coin_mesh.clone(),
+                    material: coin_material.clone(),
+                    transform: Transform::from_translation(coin_base_position)
+                        .with_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+                    ..default()
+                },
+                RigidBody::KinematicPositionBased,
+                Collider::cylinder(0.05, 0.3), // Thin collider for coin
+                Coin {
+                    platform_entity: Some(platform_entity),
+                    float_height: coin_base_position.y, // Set the base floating height
+                    ..default()
+                },
+                Name::new(format!("Coin_{}", platform_index)),
+            )).id();
+
+            info!("Spawned coin on platform {}", platform_index);
+        }
+
+        platform_index += 1;
+    }
+
+    info!("Coins setup complete");
+}
+
+fn setup_coins_delayed(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut platform_query: Query<(Entity, &mut Platform, &Transform)>,
+    mut done: Local<bool>,
+) {
+    // Only run once
+    if *done {
+        return;
+    }
+
+    let platform_count = platform_query.iter().count();
+    if platform_count == 0 {
+        return; // Wait for platforms to be spawned
+    }
+
+    info!("Setting up coins with {} platforms found", platform_count);
+
+    // Define which platforms should have coins (using indices for simplicity)
+    let coin_platform_indices = vec![
+        1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39
+    ];
+
+    // Gold coin material with strong glow
+    let coin_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(1.0, 0.8, 0.0), // Gold color
+        metallic: 0.7,
+        perceptual_roughness: 0.1,
+        reflectance: 0.9,
+        emissive: Color::rgb(1.5, 1.2, 0.3), // Strong golden glow
+        ..default()
+    });
+
+    // Coin mesh - cylinder to look like a coin
+    let coin_mesh = meshes.add(Mesh::from(shape::Cylinder {
+        radius: 0.3,
+        height: 0.1,
+        resolution: 16,
+        segments: 1,
+    }));
+
+    let mut coins_spawned = 0;
+    let mut platform_index = 0;
+    for (platform_entity, mut platform, platform_transform) in platform_query.iter_mut() {
+        // Check if this platform should have a coin
+        if coin_platform_indices.contains(&platform_index) {
+            platform.has_coin = true;
+
+            // Spawn coin above the platform
+            let coin_base_position = platform_transform.translation + Vec3::new(0.0, 1.5, 0.0);
+
+            let coin_entity = commands.spawn((
+                PbrBundle {
+                    mesh: coin_mesh.clone(),
+                    material: coin_material.clone(),
+                    transform: Transform::from_translation(coin_base_position)
+                        .with_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+                    ..default()
+                },
+                RigidBody::KinematicPositionBased,
+                Collider::cylinder(0.05, 0.3), // Thin collider for coin
+                Coin {
+                    platform_entity: Some(platform_entity),
+                    float_height: coin_base_position.y, // Set the base floating height
+                    ..default()
+                },
+                Name::new(format!("Coin_{}", platform_index)),
+            )).with_children(|parent| {
+                // Add glowing point light to the coin
+                parent.spawn((
+                    PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 300.0,
+                            color: Color::rgb(1.0, 0.8, 0.2), // Warm golden light
+                            shadows_enabled: false, // Disable shadows for performance
+                            range: 6.0,
+                            radius: 0.3,
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(0.0, 0.0, 0.0), // Center on coin
+                        ..default()
+                    },
+                    Name::new(format!("CoinLight_{}", platform_index)),
+                ));
+            }).id();
+
+            coins_spawned += 1;
+            info!("Spawned coin on platform {}", platform_index);
+        }
+
+        platform_index += 1;
+    }
+
+    info!("Coins setup complete! Spawned {} coins", coins_spawned);
+    *done = true;
+}
+
+fn animate_coins(
+    time: Res<Time>,
+    mut coin_query: Query<(Entity, &mut Transform, &Coin)>,
+    mut light_query: Query<&mut PointLight, Without<Coin>>,
+    children_query: Query<&Children>,
+) {
+    for (coin_entity, mut transform, coin) in coin_query.iter_mut() {
+        // Float up and down
+        let float_offset = (time.elapsed_seconds() * coin.float_speed).sin() * 0.2;
+        transform.translation.y = coin.float_height + float_offset;
+
+        // Rotate around Z axis
+        transform.rotation *= Quat::from_rotation_z(coin.rotation_speed * time.delta_seconds());
+
+        // Find and animate the child light
+        if let Ok(children) = children_query.get(coin_entity) {
+            for &child in children.iter() {
+                if let Ok(mut point_light) = light_query.get_mut(child) {
+                    // Pulsing glow effect
+                    let pulse = (time.elapsed_seconds() * 3.0).sin() * 0.5 + 0.5; // 0.0 to 1.0
+                    point_light.intensity = 200.0 + (pulse * 150.0); // Pulse between 200 and 350
+                }
+            }
+        }
+    }
+}
+
+fn handle_coin_collection(
+    mut commands: Commands,
+    coin_query: Query<(Entity, &Transform, &Coin)>,
+    player_query: Query<(Entity, &Transform), (With<Player>, Without<Coin>)>,
+    mut stats: ResMut<crate::resources::GameStats>,
+) {
+    // Check for player-coin collisions
+    if let Ok((player_entity, player_transform)) = player_query.get_single() {
+        for (coin_entity, coin_transform, coin) in coin_query.iter() {
+            let distance = player_transform.translation.distance(coin_transform.translation);
+
+            if distance < coin.collection_radius {
+                // Collect the coin
+                stats.coins_collected += 1;
+
+                // Remove coin from world (including child light)
+                commands.entity(coin_entity).despawn_recursive();
+
+                // Update platform to no longer have coin
+                if let Some(platform_entity) = coin.platform_entity {
+                    info!("Collected coin from platform {:?}", platform_entity);
+                }
+
+                info!("Coin collected! Total coins: {}", stats.coins_collected);
+            }
+        }
+    }
+}
+
 fn handle_platform_interactions(
     platform_query: Query<(&Platform, &Transform), With<Platform>>,
     player_query: Query<&Transform, (With<Player>, Without<Platform>)>,
@@ -315,6 +549,7 @@ fn update_physics_debug(
 pub struct Platform {
     pub platform_type: PlatformType,
     pub is_active: bool,
+    pub has_coin: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -326,3 +561,26 @@ pub enum PlatformType {
     Bridge,
     Moving,
 }
+
+// Coin component
+#[derive(Component)]
+pub struct Coin {
+    pub float_height: f32,
+    pub float_speed: f32,
+    pub rotation_speed: f32,
+    pub collection_radius: f32,
+    pub platform_entity: Option<Entity>,
+}
+
+impl Default for Coin {
+    fn default() -> Self {
+        Self {
+            float_height: 1.5,
+            float_speed: 2.0,
+            rotation_speed: 2.0,
+            collection_radius: 1.0,
+            platform_entity: None,
+        }
+    }
+}
+

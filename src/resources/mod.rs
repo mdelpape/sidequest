@@ -36,6 +36,7 @@ pub struct GameStats {
     pub platform_touches: u32,
     pub max_height: f32,
     pub total_distance: f32,
+    pub coins_collected: u32,
 }
 
 // Performance Metrics
