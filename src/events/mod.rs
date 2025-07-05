@@ -41,6 +41,12 @@ pub struct PlayerMoveEvent {
     pub direction: Vec3,
 }
 
+#[derive(Event)]
+pub struct PlayerFallEvent {
+    pub entity: Entity,
+    pub position: Vec3,
+}
+
 #[derive(Debug, Clone)]
 pub enum FlipType {
     Front,
@@ -87,6 +93,7 @@ impl Plugin for EventsPlugin {
             .add_event::<PlayerLandEvent>()
             .add_event::<PlayerFlipEvent>()
             .add_event::<PlayerMoveEvent>()
+            .add_event::<PlayerFallEvent>()
             .add_event::<AnimationStartEvent>()
             .add_event::<AnimationEndEvent>()
             .add_event::<SystemErrorEvent>()

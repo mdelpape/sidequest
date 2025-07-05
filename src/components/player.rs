@@ -9,6 +9,7 @@ pub struct Player {
     pub is_dive_rolling: bool,
     pub flip_direction: Vec3,
     pub facing_left: bool,
+    pub is_falling: bool,
 }
 
 /// Marker component for the player's main collider

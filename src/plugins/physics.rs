@@ -36,7 +36,13 @@ fn setup_platforms(
                 subdivisions: 8,
                 options: BoxMeshOptions::DEFAULT,
             })),
-            material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.5, 0.5, 0.5),
+                perceptual_roughness: 0.8,
+                metallic: 0.0,
+                reflectance: 0.4,
+                ..default()
+            }),
             transform: Transform::from_xyz(0.0, -0.25, 0.0),
             ..default()
         },
@@ -78,29 +84,107 @@ fn setup_platforms(
         ));
     });
 
-    // Floating platforms configuration
     let platform_configs = vec![
-        // Left side platforms
-        (Vec3::new(-8.0, 2.0, 0.0), Vec3::new(4.0, 0.5, 3.0), PlatformType::Floating),
-        (Vec3::new(-12.0, 4.5, 0.0), Vec3::new(3.0, 0.5, 2.5), PlatformType::Floating),
-        (Vec3::new(-6.0, 6.0, 0.0), Vec3::new(2.5, 0.5, 2.0), PlatformType::Floating),
+        // === SECTION 1: TUTORIAL JUMPS (Easy) ===
+        // Simple progression to teach basic jumping
+        (Vec3::new(12.0, 2.5, 0.0), Vec3::new(4.0, 0.5, 4.0), PlatformType::Floating),
+        (Vec3::new(18.0, 4.0, 0.0), Vec3::new(4.0, 0.5, 4.0), PlatformType::Floating),
+        (Vec3::new(24.0, 6.0, 0.0), Vec3::new(4.0, 0.5, 4.0), PlatformType::Floating),
 
-        // Right side platforms
-        (Vec3::new(8.0, 1.5, 0.0), Vec3::new(3.5, 0.5, 4.0), PlatformType::Floating),
-        (Vec3::new(12.0, 3.5, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::Floating),
-        (Vec3::new(10.0, 5.5, 0.0), Vec3::new(3.0, 0.5, 2.5), PlatformType::Floating),
+        // === SECTION 2: FIRST CHALLENGE (Medium) ===
+        // Smaller platforms, requires precision
+        (Vec3::new(30.0, 8.5, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Small),
+        (Vec3::new(35.0, 10.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
 
-        // Center progression platforms
-        (Vec3::new(0.0, 3.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::Floating),
-        (Vec3::new(-2.0, 5.0, 0.0), Vec3::new(1.5, 0.5, 1.5), PlatformType::Small),
-        (Vec3::new(2.0, 7.0, 0.0), Vec3::new(1.5, 0.5, 1.5), PlatformType::Small),
+        // First gap that requires a running jump
+        (Vec3::new(42.0, 12.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Floating),
 
-        // Stepping stones
-        (Vec3::new(-4.0, 8.5, 0.0), Vec3::new(1.0, 0.5, 1.0), PlatformType::SteppingStone),
-        (Vec3::new(4.0, 8.5, 0.0), Vec3::new(1.0, 0.5, 1.0), PlatformType::SteppingStone),
+        // === SECTION 3: BRANCHING PATHS (Medium-Hard) ===
+        // Left path - More platforms, easier but longer
+        (Vec3::new(36.0, 14.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(32.0, 16.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(28.0, 18.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(32.0, 20.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Floating),
 
-        // High bridge
-        (Vec3::new(0.0, 10.0, 0.0), Vec3::new(8.0, 0.5, 1.5), PlatformType::Bridge),
+        // Right path - Fewer platforms, harder but shorter
+        (Vec3::new(46.0, 15.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(50.0, 18.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(46.0, 21.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Floating),
+
+        // Convergence point
+        (Vec3::new(39.0, 23.0, 0.0), Vec3::new(4.0, 0.5, 4.0), PlatformType::Bridge),
+
+        // === SECTION 4: PRECISION CHALLENGE (Hard) ===
+        // Stepping stones that require precise timing
+        (Vec3::new(35.0, 25.5, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(31.0, 27.0, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(27.0, 28.5, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(23.0, 30.0, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+
+        // Safe platform after challenge
+        (Vec3::new(18.0, 32.0, 0.0), Vec3::new(4.0, 0.5, 4.0), PlatformType::Floating),
+
+        // === SECTION 5: VERTICAL WALL CLIMB (Hard) ===
+        // Alternating platforms that require wall-jump-like movement
+        (Vec3::new(12.0, 34.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(16.0, 36.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(10.0, 38.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(14.0, 40.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(8.0, 42.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(12.0, 44.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+
+        // === SECTION 6: THE GAUNTLET (Very Hard) ===
+        // Series of maximum-distance jumps
+        (Vec3::new(18.0, 46.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(26.0, 47.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(34.0, 48.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(42.0, 49.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+
+        // === SECTION 7: FINAL ASCENT (Expert) ===
+        // Multiple path choices with varying difficulty
+
+        // Left path - Safer but requires backtracking
+        (Vec3::new(36.0, 51.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(30.0, 53.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(34.0, 55.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+        (Vec3::new(38.0, 57.0, 0.0), Vec3::new(2.5, 0.5, 2.5), PlatformType::Small),
+
+        // Right path - Direct but very challenging
+        (Vec3::new(46.0, 52.0, 0.0), Vec3::new(1.5, 0.5, 1.5), PlatformType::SteppingStone),
+        (Vec3::new(50.0, 55.0, 0.0), Vec3::new(1.5, 0.5, 1.5), PlatformType::SteppingStone),
+        (Vec3::new(46.0, 58.0, 0.0), Vec3::new(1.5, 0.5, 1.5), PlatformType::SteppingStone),
+
+        // Center path - Balanced difficulty
+        (Vec3::new(42.0, 53.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(38.0, 56.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(42.0, 59.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+
+        // === SECTION 8: FINAL CONVERGENCE ===
+        // All paths lead here
+        (Vec3::new(40.0, 61.0, 0.0), Vec3::new(5.0, 0.5, 5.0), PlatformType::Bridge),
+
+        // === SECTION 9: VICTORY CHALLENGE (Master) ===
+        // Final test of all skills learned
+        (Vec3::new(35.0, 63.5, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(31.0, 65.0, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(35.0, 66.5, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(39.0, 68.0, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+        (Vec3::new(43.0, 69.5, 0.0), Vec3::new(1.8, 0.5, 1.8), PlatformType::SteppingStone),
+
+        // === FINAL PLATFORM (Victory) ===
+        (Vec3::new(40.0, 72.0, 0.0), Vec3::new(8.0, 0.5, 8.0), PlatformType::Bridge),
+
+        // === OPTIONAL SECRET AREAS ===
+        // Hidden high-skill bonus platforms
+        (Vec3::new(0.0, 45.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(-6.0, 48.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(6.0, 48.0, 0.0), Vec3::new(2.0, 0.5, 2.0), PlatformType::SteppingStone),
+        (Vec3::new(0.0, 51.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Floating),
+
+        // Emergency fallback platforms (slightly hidden)
+        (Vec3::new(20.0, 25.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Small),
+        (Vec3::new(25.0, 35.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Small),
+        (Vec3::new(30.0, 45.0, 0.0), Vec3::new(3.0, 0.5, 3.0), PlatformType::Small),
     ];
 
     for (i, (position, size, platform_type)) in platform_configs.iter().enumerate() {
@@ -121,7 +205,13 @@ fn setup_platforms(
                     subdivisions: 6,
                     options: BoxMeshOptions::DEFAULT,
                 })),
-                material: materials.add(color.into()),
+                material: materials.add(StandardMaterial {
+                    base_color: color,
+                    perceptual_roughness: 0.8,
+                    metallic: 0.0,
+                    reflectance: 0.4,
+                    ..default()
+                }),
                 transform: Transform::from_translation(*position),
                 ..default()
             },

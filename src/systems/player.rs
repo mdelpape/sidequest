@@ -45,6 +45,7 @@ pub fn spawn_player(
                 is_dive_rolling: false,
                 flip_direction: Vec3::ZERO,
                 facing_left: false,
+                is_falling: false,
             },
         )).with_children(|parent| {
             // Spawn the mesh as a child with an offset

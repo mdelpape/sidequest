@@ -21,6 +21,12 @@ impl Plugin for PlayerPlugin {
                 handle_player_animation,
                 check_player_grounded,
                 manage_dive_roll_hitbox,
+            ).run_if(in_state(GameState::Playing)))
+            .add_systems(Update, (
+                check_player_fall,
+                handle_player_fall,
+                update_death_vignette,
+                handle_player_respawn,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -62,6 +68,7 @@ fn spawn_player(
             is_dive_rolling: false,
             flip_direction: Vec3::ZERO,
             facing_left: false,
+            is_falling: false,
         },
         InheritedVisibility::default(),
         ViewVisibility::default(),
@@ -101,7 +108,7 @@ fn manage_dive_roll_hitbox(
             // Spawn dive roll collider as a child entity at the player's feet
             commands.entity(player_entity).with_children(|parent| {
                 parent.spawn((
-                    TransformBundle::from_transform(Transform::from_xyz(0.0, -0.3, 0.0)),
+                    TransformBundle::from_transform(Transform::from_xyz(0.0, -0.5, 0.0)),
                     Collider::capsule_y(0.15, 0.2), // Smaller capsule: radius 0.15, height 0.2
                     DiveRollCollider,
                     Name::new("DiveRollCollider"),
@@ -203,9 +210,9 @@ fn handle_player_flip(
                     if !player.is_dive_rolling {
                         player.is_dive_rolling = true;
                         player.flip_direction = if player.facing_left {
-                            Vec3::new(-0.5, 0.0, 0.0)
+                            Vec3::new(-0.4, 0.0, 0.0)
                         } else {
-                            Vec3::new(0.5, 0.0, 0.0)
+                            Vec3::new(0.4, 0.0, 0.0)
                         };
                         stats.flip_count += 1;
                         info!("Player dive rolled! Total flips: {}", stats.flip_count);
@@ -283,6 +290,134 @@ fn check_player_grounded(
         if !was_grounded && player.is_grounded {
             // Player just landed
             info!("Player landed!");
+        }
+    }
+}
+
+fn check_player_fall(
+    mut player_query: Query<(Entity, &Transform, &mut Player)>,
+    mut fall_events: EventWriter<PlayerFallEvent>,
+    mut stats: ResMut<GameStats>,
+) {
+    const FALL_THRESHOLD: f32 = -10.0; // Y position below which player is considered fallen
+
+    for (entity, transform, mut player) in player_query.iter_mut() {
+        if transform.translation.y < FALL_THRESHOLD && !player.is_falling {
+            player.is_falling = true;
+            fall_events.send(PlayerFallEvent {
+                entity,
+                position: transform.translation,
+            });
+            stats.fall_count += 1;
+            info!("Player fell off platform! Total falls: {}", stats.fall_count);
+        }
+    }
+}
+
+fn handle_player_fall(
+    mut commands: Commands,
+    mut fall_events: EventReader<PlayerFallEvent>,
+    time: Res<Time>,
+) {
+    for _event in fall_events.read() {
+        // Create the death vignette effect - overlay that covers the entire screen
+        commands.spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    border: UiRect::all(Val::Px(0.0)),
+                    ..default()
+                },
+                background_color: Color::rgba(1.0, 0.0, 0.0, 0.0).into(),
+                z_index: ZIndex::Global(1000),
+                ..default()
+            },
+            DeathVignette {
+                start_time: time.elapsed_seconds(),
+                ..default()
+            },
+            Name::new("DeathVignette"),
+        )).with_children(|parent| {
+            // Create a radial gradient effect by layering multiple nested elements
+            parent.spawn((
+                NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        ..default()
+                    },
+                    background_color: Color::rgba(0.0, 0.0, 0.0, 0.0).into(),
+                    ..default()
+                },
+                Name::new("VignetteInner"),
+            ));
+        });
+
+        info!("Death vignette effect started");
+    }
+}
+
+fn update_death_vignette(
+    mut commands: Commands,
+    mut vignette_query: Query<(Entity, &mut BackgroundColor, &DeathVignette)>,
+    time: Res<Time>,
+) {
+    for (entity, mut background_color, vignette) in vignette_query.iter_mut() {
+        let elapsed = time.elapsed_seconds() - vignette.start_time;
+        let progress = (elapsed / vignette.duration).min(1.0);
+
+        if progress >= 1.0 {
+            // Remove the vignette effect
+            commands.entity(entity).despawn_recursive();
+            info!("Death vignette effect ended");
+        } else {
+            // Create a dramatic pulsing red vignette effect
+            // Start with rapid pulses, then fade to solid red
+            let pulse_speed = 8.0 - (progress * 6.0); // Slower pulses over time
+            let base_intensity = progress * 0.3; // Base red tint that increases over time
+            let pulse_intensity = (elapsed * pulse_speed).sin().abs() * 0.5 * (1.0 - progress * 0.5);
+            let total_intensity = (base_intensity + pulse_intensity).min(vignette.max_intensity);
+
+            background_color.0 = Color::rgba(1.0, 0.0, 0.0, total_intensity);
+        }
+    }
+}
+
+fn handle_player_respawn(
+    mut player_query: Query<(&mut Transform, &mut Velocity, &mut Player)>,
+    vignette_query: Query<&DeathVignette>,
+    mut spawn_events: EventWriter<PlayerSpawnEvent>,
+    time: Res<Time>,
+) {
+    // Check if there's an active vignette effect that's near completion
+    for vignette in vignette_query.iter() {
+        let elapsed = time.elapsed_seconds() - vignette.start_time;
+        let progress = elapsed / vignette.duration;
+
+        if progress >= 0.8 { // Start respawn near end of vignette
+            let spawn_position = Vec3::new(0.0, 7.0, 0.0);
+
+            // Reset player position and velocity
+            if let Ok((mut transform, mut velocity, mut player)) = player_query.get_single_mut() {
+                transform.translation = spawn_position;
+                velocity.linvel = Vec3::ZERO;
+                velocity.angvel = Vec3::ZERO;
+                player.is_falling = false; // Reset the falling flag
+
+                spawn_events.send(PlayerSpawnEvent {
+                    position: spawn_position,
+                });
+
+                info!("Player respawned at {:?}", spawn_position);
+                break;
+            }
         }
     }
 }

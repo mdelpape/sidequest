@@ -41,9 +41,9 @@ fn update_debug_display(
     }
 
     // Draw player position
-    if let Ok(player_transform) = player_query.get_single() {
-        gizmos.sphere(player_transform.translation, Quat::IDENTITY, 0.5, Color::RED);
-    }
+    // if let Ok(player_transform) = player_query.get_single() {
+    //     gizmos.sphere(player_transform.translation, Quat::IDENTITY, 0.5, Color::RED);
+    // }
 
     // Draw collider boxes with different colors based on friction
     if config.show_colliders {
