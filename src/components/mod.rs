@@ -27,3 +27,7 @@ impl Default for DeathVignette {
         }
     }
 }
+
+// Trampoline top surface marker
+#[derive(Component)]
+pub struct TrampolineTopSurface;

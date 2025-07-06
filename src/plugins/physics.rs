@@ -18,6 +18,8 @@ impl Plugin for PhysicsPlugin {
             ))
             .add_systems(Update, (
                 handle_platform_interactions,
+                handle_trampoline_collisions,
+                handle_trampoline_proximity,
                 update_physics_debug,
                 handle_coin_collection,
                 animate_coins,
@@ -130,6 +132,7 @@ fn setup_platforms(
                 coefficient: 1.2, // Super bouncy!
                 combine_rule: CoefficientCombineRule::Max,
             },
+            TrampolineTopSurface, // Mark this as the bouncy surface
         ));
 
         // Side/bottom collider
@@ -572,9 +575,6 @@ fn handle_platform_interactions(
     platform_query: Query<(Entity, &Platform, &Transform), With<Platform>>,
     player_query: Query<(Entity, &Transform, &Player), (With<Player>, Without<Platform>)>,
     mut stats: ResMut<crate::resources::GameStats>,
-    mut trampoline_events: EventWriter<TrampolineBounceEvent>,
-    mut last_trampoline_time: Local<f32>,
-    time: Res<Time>,
 ) {
     if let Ok((player_entity, player_transform, player)) = player_query.get_single() {
         for (platform_entity, platform, platform_transform) in platform_query.iter() {
@@ -586,25 +586,57 @@ fn handle_platform_interactions(
                     // Special behavior for stepping stones
                     stats.platform_touches += 1;
                 }
+            }
+        }
+    }
+}
 
-                // Trampoline bounce logic
-                if matches!(platform.platform_type, PlatformType::Trampoline) {
-                    let current_time = time.elapsed_seconds();
-                    let time_since_last_bounce = current_time - *last_trampoline_time;
+fn handle_trampoline_collisions(
+    mut collision_events: EventReader<CollisionEvent>,
+    player_query: Query<Entity, With<Player>>,
+    trampoline_query: Query<Entity, With<TrampolineTopSurface>>,
+    mut trampoline_events: EventWriter<TrampolineBounceEvent>,
+    mut last_trampoline_time: Local<f32>,
+    time: Res<Time>,
+) {
+    let Ok(player_entity) = player_query.get_single() else {
+        return;
+    };
 
-                    // Check if player just landed on trampoline (prevent spam bouncing)
-                    if player.is_grounded && time_since_last_bounce > 0.5 {
-                        // Send trampoline bounce event
-                        trampoline_events.send(TrampolineBounceEvent {
-                            player_entity,
-                            bounce_force: 12.0, // Higher than normal jump force
-                            platform_entity,
-                        });
+    for collision_event in collision_events.read() {
+        let (entity1, entity2) = match collision_event {
+            CollisionEvent::Started(e1, e2, _) => {
+                info!("Collision started between {:?} and {:?}", e1, e2);
+                (e1, e2)
+            },
+            CollisionEvent::Stopped(_, _, _) => continue,
+        };
 
-                        *last_trampoline_time = current_time;
-                        info!("Player bounced on trampoline! Boost applied.");
-                    }
-                }
+        // Check if collision is between player and trampoline top surface
+        let is_player_trampoline_collision =
+            (entity1 == &player_entity && trampoline_query.get(*entity2).is_ok()) ||
+            (entity2 == &player_entity && trampoline_query.get(*entity1).is_ok());
+
+        if is_player_trampoline_collision {
+            let current_time = time.elapsed_seconds();
+            let time_since_last_bounce = current_time - *last_trampoline_time;
+
+            info!("Player collision with trampoline top surface detected! Time since last bounce: {}", time_since_last_bounce);
+
+            // Prevent spam bouncing with cooldown
+            if time_since_last_bounce > 0.2 {
+                let trampoline_entity = if entity1 == &player_entity { *entity2 } else { *entity1 };
+
+                trampoline_events.send(TrampolineBounceEvent {
+                    player_entity,
+                    bounce_force: 50.0, // Increased force
+                    platform_entity: trampoline_entity,
+                });
+
+                *last_trampoline_time = current_time;
+                info!("Player bounced on trampoline top surface! Boost applied with force 15.0");
+            } else {
+                info!("Trampoline bounce blocked by cooldown");
             }
         }
     }
@@ -654,6 +686,8 @@ pub struct Coin {
     pub platform_entity: Option<Entity>,
 }
 
+
+
 impl Default for Coin {
     fn default() -> Self {
         Self {
@@ -662,6 +696,48 @@ impl Default for Coin {
             rotation_speed: 2.0,
             collection_radius: 1.0,
             platform_entity: None,
+        }
+    }
+}
+
+fn handle_trampoline_proximity(
+    platform_query: Query<(Entity, &Platform, &Transform), With<Platform>>,
+    player_query: Query<(Entity, &Transform, &Player, &Velocity), (With<Player>, Without<Platform>)>,
+    mut trampoline_events: EventWriter<TrampolineBounceEvent>,
+    mut last_proximity_bounce_time: Local<f32>,
+    time: Res<Time>,
+) {
+    let Ok((player_entity, player_transform, player, player_velocity)) = player_query.get_single() else {
+        return;
+    };
+
+    for (platform_entity, platform, platform_transform) in platform_query.iter() {
+        if !matches!(platform.platform_type, PlatformType::Trampoline) {
+            continue;
+        }
+
+        let distance = player_transform.translation.distance(platform_transform.translation);
+        let height_diff = player_transform.translation.y - platform_transform.translation.y;
+
+        // Check if player is above and close to the trampoline
+        if distance < 2.5 && height_diff > 0.5 && height_diff < 1.5 && player.is_grounded {
+            let current_time = time.elapsed_seconds();
+            let time_since_last_bounce = current_time - *last_proximity_bounce_time;
+
+            // Check if player is moving downward (just landed)
+            if player_velocity.linvel.y < 1.0 && time_since_last_bounce > 0.3 {
+                info!("Proximity-based trampoline bounce detected! Distance: {}, Height diff: {}, Velocity Y: {}",
+                      distance, height_diff, player_velocity.linvel.y);
+
+                trampoline_events.send(TrampolineBounceEvent {
+                    player_entity,
+                    bounce_force: 15.0,
+                    platform_entity,
+                });
+
+                *last_proximity_bounce_time = current_time;
+                info!("Proximity trampoline bounce applied with force 15.0");
+            }
         }
     }
 }
