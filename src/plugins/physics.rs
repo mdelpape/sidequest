@@ -89,6 +89,64 @@ fn setup_platforms(
         ));
     });
 
+    // Add trampoline platform near starting position for testing
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(RoundedBox {
+                size: Vec3::new(3.0, 0.8, 3.0),
+                radius: 0.3,
+                subdivisions: 8,
+                options: BoxMeshOptions::DEFAULT,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.2, 0.8, 0.2), // Bright green for trampoline
+                perceptual_roughness: 0.3,
+                metallic: 0.1,
+                reflectance: 0.6,
+                emissive: Color::rgb(0.1, 0.4, 0.1), // Slight green glow
+                ..default()
+            }),
+            transform: Transform::from_xyz(6.0, 1.0, 0.0), // Close to starting position
+            ..default()
+        },
+        RigidBody::Fixed,
+        Platform {
+            platform_type: PlatformType::Trampoline,
+            is_active: true,
+            has_coin: false,
+        },
+        Name::new("TrampolinePlatform"),
+    ))
+    .with_children(|parent| {
+        // Top surface with bouncy properties
+        parent.spawn((
+            TransformBundle::from_transform(Transform::from_xyz(0.0, 0.3, 0.0)),
+            Collider::round_cuboid(1.5, 0.1, 1.5, 0.1),
+            Friction {
+                coefficient: 0.9,
+                combine_rule: CoefficientCombineRule::Max,
+            },
+            Restitution {
+                coefficient: 1.2, // Super bouncy!
+                combine_rule: CoefficientCombineRule::Max,
+            },
+        ));
+
+        // Side/bottom collider
+        parent.spawn((
+            TransformBundle::from_transform(Transform::from_xyz(0.0, -0.2, 0.0)),
+            Collider::round_cuboid(1.5, 0.3, 1.5, 0.15),
+            Friction {
+                coefficient: 0.2,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Restitution {
+                coefficient: 0.3,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+        ));
+    });
+
     let platform_configs = vec![
         // === SECTION 1: TUTORIAL JUMPS (Easy) ===
         // Simple progression to teach basic jumping
@@ -200,6 +258,7 @@ fn setup_platforms(
             PlatformType::SteppingStone => Color::rgb(0.4, 0.4, 0.4),
             PlatformType::Bridge => Color::rgb(0.7, 0.7, 0.7),
             PlatformType::Moving => Color::rgb(0.8, 0.4, 0.4),
+            PlatformType::Trampoline => Color::rgb(0.2, 0.8, 0.2),
         };
 
         commands.spawn((
@@ -510,12 +569,15 @@ fn handle_coin_collection(
 }
 
 fn handle_platform_interactions(
-    platform_query: Query<(&Platform, &Transform), With<Platform>>,
-    player_query: Query<&Transform, (With<Player>, Without<Platform>)>,
+    platform_query: Query<(Entity, &Platform, &Transform), With<Platform>>,
+    player_query: Query<(Entity, &Transform, &Player), (With<Player>, Without<Platform>)>,
     mut stats: ResMut<crate::resources::GameStats>,
+    mut trampoline_events: EventWriter<TrampolineBounceEvent>,
+    mut last_trampoline_time: Local<f32>,
+    time: Res<Time>,
 ) {
-    if let Ok(player_transform) = player_query.get_single() {
-        for (platform, platform_transform) in platform_query.iter() {
+    if let Ok((player_entity, player_transform, player)) = player_query.get_single() {
+        for (platform_entity, platform, platform_transform) in platform_query.iter() {
             let distance = player_transform.translation.distance(platform_transform.translation);
 
             if distance < 3.0 && platform.is_active {
@@ -523,6 +585,25 @@ fn handle_platform_interactions(
                 if matches!(platform.platform_type, PlatformType::SteppingStone) {
                     // Special behavior for stepping stones
                     stats.platform_touches += 1;
+                }
+
+                // Trampoline bounce logic
+                if matches!(platform.platform_type, PlatformType::Trampoline) {
+                    let current_time = time.elapsed_seconds();
+                    let time_since_last_bounce = current_time - *last_trampoline_time;
+
+                    // Check if player just landed on trampoline (prevent spam bouncing)
+                    if player.is_grounded && time_since_last_bounce > 0.5 {
+                        // Send trampoline bounce event
+                        trampoline_events.send(TrampolineBounceEvent {
+                            player_entity,
+                            bounce_force: 12.0, // Higher than normal jump force
+                            platform_entity,
+                        });
+
+                        *last_trampoline_time = current_time;
+                        info!("Player bounced on trampoline! Boost applied.");
+                    }
                 }
             }
         }
@@ -560,6 +641,7 @@ pub enum PlatformType {
     SteppingStone,
     Bridge,
     Moving,
+    Trampoline,
 }
 
 // Coin component

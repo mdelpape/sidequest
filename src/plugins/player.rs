@@ -17,6 +17,7 @@ impl Plugin for PlayerPlugin {
                 handle_player_movement,
                 handle_player_jump,
                 handle_player_flip,
+                handle_trampoline_bounce,
                 update_player_state,
                 handle_player_animation,
                 check_player_grounded,
@@ -219,6 +220,19 @@ fn handle_player_flip(
                     }
                 }
             }
+        }
+    }
+}
+
+fn handle_trampoline_bounce(
+    mut trampoline_events: EventReader<TrampolineBounceEvent>,
+    mut player_query: Query<&mut Velocity>,
+) {
+    for event in trampoline_events.read() {
+        if let Ok(mut velocity) = player_query.get_mut(event.player_entity) {
+            // Apply trampoline boost
+            velocity.linvel.y = event.bounce_force;
+            info!("Trampoline boost applied! Velocity: {}", event.bounce_force);
         }
     }
 }

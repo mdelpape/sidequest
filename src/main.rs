@@ -13,7 +13,7 @@ fn main() {
                 ..default()
             }),
             RapierPhysicsPlugin::<NoUserData>::default(),
-            // RapierDebugRenderPlugin::default(),
+            RapierDebugRenderPlugin::default(),
             FrameTimeDiagnosticsPlugin,
             GamePlugin,
         ))

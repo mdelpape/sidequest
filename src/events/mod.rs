@@ -86,6 +86,14 @@ pub struct CoinCollectedEvent {
     pub position: Vec3,
 }
 
+// Trampoline Events
+#[derive(Event)]
+pub struct TrampolineBounceEvent {
+    pub player_entity: Entity,
+    pub bounce_force: f32,
+    pub platform_entity: Entity,
+}
+
 // Plugin to register all events
 pub struct EventsPlugin;
 
@@ -106,6 +114,7 @@ impl Plugin for EventsPlugin {
             .add_event::<AnimationEndEvent>()
             .add_event::<SystemErrorEvent>()
             .add_event::<DebugEvent>()
-            .add_event::<CoinCollectedEvent>();
+            .add_event::<CoinCollectedEvent>()
+            .add_event::<TrampolineBounceEvent>();
     }
 }
