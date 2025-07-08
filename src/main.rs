@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::log::LogPlugin;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy_rapier3d::prelude::*;
+use bevy_egui::EguiPlugin;
 use sidequest::*;
 
 fn main() {
@@ -12,21 +13,35 @@ fn main() {
                 level: bevy::log::Level::INFO,
                 ..default()
             }),
+            EguiPlugin,
             RapierPhysicsPlugin::<NoUserData>::default(),
-            RapierDebugRenderPlugin::default(),
+            // RapierDebugRenderPlugin::default(),
             FrameTimeDiagnosticsPlugin,
             GamePlugin,
         ))
-        .add_systems(Startup, init_animations)
+        .add_systems(OnEnter(GameState::Playing), init_animations)
         .run();
 }
 
-fn init_animations(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(PlayerAnimations {
-        walk: asset_server.load("boss3.glb#Animation9"),
-        air: asset_server.load("boss3.glb#Animation0"),
-        idle: asset_server.load("boss3.glb#Animation6"),
-        front_flip: asset_server.load("boss3.glb#Animation3"),
-        dive_roll: asset_server.load("boss3.glb#Animation4"),
-    });
+fn init_animations(
+    mut commands: Commands,
+    selected_character: Res<SelectedCharacter>,
+    preloaded_animations: Res<PreloadedAnimations>,
+) {
+    info!("=== SETTING UP ANIMATIONS ===");
+    info!("Using preloaded animations for character: {:?}", selected_character.character_type);
+
+    let animations = match selected_character.character_type {
+        CharacterType::Boss3 => {
+            info!("Using preloaded Boss3 animations");
+            preloaded_animations.boss3.clone()
+        },
+        CharacterType::SwordHero => {
+            info!("Using preloaded SwordHero animations");
+            preloaded_animations.sword_hero.clone()
+        },
+    };
+
+    commands.insert_resource(animations);
+    info!("=== ANIMATIONS READY ===");
 }

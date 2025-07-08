@@ -4,6 +4,8 @@ use bevy::prelude::*;
 pub enum GameState {
     #[default]
     Loading,
+    Authentication,
+    CharacterSelection,
     MainMenu,
     Playing,
     Paused,
@@ -16,6 +18,15 @@ pub enum PlayState {
     Setup,
     Playing,
     Transitioning,
+}
+
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub enum AuthState {
+    #[default]
+    Login,
+    SignUp,
+    Authenticating,
+    Authenticated,
 }
 
 #[derive(Component)]

@@ -19,10 +19,11 @@ impl Plugin for CorePlugin {
                 update_performance_metrics,
                 update_loading_progress,
             ))
-            .add_systems(OnEnter(GameState::Loading), enter_loading_state)
+            .add_systems(OnEnter(GameState::Loading), (enter_loading_state, preload_animations))
             .add_systems(OnExit(GameState::Loading), exit_loading_state)
             .add_systems(OnEnter(GameState::Playing), enter_playing_state)
-            .add_systems(OnExit(GameState::Playing), exit_playing_state);
+            .add_systems(OnExit(GameState::Playing), exit_playing_state)
+            .add_systems(OnEnter(GameState::CharacterSelection), reset_game_on_restart);
     }
 }
 
@@ -97,8 +98,11 @@ fn handle_game_state_transitions(
     match current_state.get() {
         GameState::Loading => {
             if loading_progress.progress() >= 1.0 {
-                next_state.set(GameState::Playing);
+                next_state.set(GameState::Authentication);
             }
+        }
+        GameState::CharacterSelection => {
+            // Character selection handles its own transition to Playing
         }
         GameState::Playing => {
             if keyboard.just_pressed(KeyCode::Escape) {
@@ -160,9 +164,79 @@ fn enter_playing_state(mut play_state: ResMut<NextState<PlayState>>) {
     info!("Entered playing state");
 }
 
-fn exit_playing_state(mut commands: Commands, query: Query<Entity, With<StateCleanup>>) {
+fn exit_playing_state(
+    mut commands: Commands,
+    query: Query<Entity, With<StateCleanup>>,
+    player_query: Query<Entity, With<crate::Player>>,
+) {
     for entity in query.iter() {
         commands.entity(entity).despawn_recursive();
     }
+
+    // Despawn player when exiting playing state
+    for player_entity in player_query.iter() {
+        commands.entity(player_entity).despawn_recursive();
+        info!("Player despawned when exiting playing state");
+    }
+
     info!("Exited playing state");
+}
+
+fn preload_animations(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    info!("=== PRELOADING ASSETS ===");
+
+    // Preload character models
+    let boss3_scene = asset_server.load("boss3.glb#Scene0");
+    let sword_hero_scene = asset_server.load("swordHero.glb#Scene0");
+
+    commands.insert_resource(PreloadedCharacterModels {
+        boss3: boss3_scene,
+        sword_hero: sword_hero_scene,
+    });
+
+    // Preload animations for Boss3
+    let boss3_animations = PlayerAnimations {
+        walk: asset_server.load("boss3.glb#Animation9"),
+        air: asset_server.load("boss3.glb#Animation0"),
+        idle: asset_server.load("boss3.glb#Animation6"),
+        front_flip: asset_server.load("boss3.glb#Animation3"),
+        dive_roll: asset_server.load("boss3.glb#Animation4"),
+    };
+
+    // Preload animations for SwordHero
+    let sword_hero_animations = PlayerAnimations {
+        walk: asset_server.load("swordHero.glb#Animation8"),
+        air: asset_server.load("swordHero.glb#Animation1"),
+        idle: asset_server.load("swordHero.glb#Animation5"),
+        front_flip: asset_server.load("swordHero.glb#Animation2"),
+        dive_roll: asset_server.load("swordHero.glb#Animation4"),
+    };
+
+    commands.insert_resource(PreloadedAnimations {
+        boss3: boss3_animations,
+        sword_hero: sword_hero_animations,
+    });
+
+    info!("Boss3 and SwordHero models and animations preloaded during Loading state");
+    info!("=== PRELOADING COMPLETE ===");
+}
+
+fn reset_game_on_restart(
+    mut stats: ResMut<GameStats>,
+    coin_query: Query<Entity, With<crate::plugins::physics::Coin>>,
+    _current_state: Res<State<GameState>>,
+) {
+    // Only reset if we're coming from a restart (not the normal loading flow)
+    // We can detect this by checking if there are coins in the world
+    if !coin_query.is_empty() {
+        info!("=== RESETTING GAME FOR RESTART ===");
+
+        // Reset game stats but keep coins as they are
+        *stats = GameStats::default();
+
+        info!("Game reset complete - stats reset, coins preserved");
+    }
 }

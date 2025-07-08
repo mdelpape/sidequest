@@ -3,7 +3,7 @@ use bevy_rapier3d::prelude::*;
 use crate::{
     components::*,
     events::*,
-    resources::{GameStats, PlayerAnimations},
+    resources::{GameStats, PlayerAnimations, SelectedCharacter, PreloadedCharacterModels, CharacterType},
     states::*,
 };
 
@@ -12,7 +12,6 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(PlayState::Setup), spawn_player)
             .add_systems(Update, (
                 handle_player_movement,
                 handle_player_jump,
@@ -22,6 +21,7 @@ impl Plugin for PlayerPlugin {
                 handle_player_animation,
                 check_player_grounded,
                 manage_dive_roll_hitbox,
+                spawn_player_when_ready,
             ).run_if(in_state(GameState::Playing)))
             .add_systems(Update, (
                 check_player_fall,
@@ -32,66 +32,87 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-fn spawn_player(
+fn spawn_player_when_ready(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut spawn_events: EventWriter<PlayerSpawnEvent>,
+    selected_character: Res<SelectedCharacter>,
+    player_query: Query<&Player>,
+    animations: Option<Res<PlayerAnimations>>,
+    preloaded_models: Option<Res<PreloadedCharacterModels>>,
 ) {
-    let scene = asset_server.load("boss3.glb#Scene0");
-    let spawn_position = Vec3::new(0.0, 7.0, 0.0);
+    // Only spawn if no player exists, animations are loaded, and models are preloaded
+    if player_query.is_empty() && animations.is_some() && preloaded_models.is_some() {
+        info!("=== SPAWNING PLAYER ===");
+        info!("Selected character: {:?}", selected_character.character_type);
 
-    commands.spawn((
-        Transform::from_translation(spawn_position),
-        GlobalTransform::default(),
-        RigidBody::Dynamic,
-        Collider::capsule_y(0.4, 0.4),
-        MainCollider,
-        Velocity::default(),
-        GravityScale(1.0),
-        LockedAxes::ROTATION_LOCKED,
-        Friction {
-            coefficient: 0.3,
-            combine_rule: CoefficientCombineRule::Min,
-        },
-        Restitution {
-            coefficient: 0.0,
-            combine_rule: CoefficientCombineRule::Min,
-        },
-        Damping {
-            linear_damping: 0.5,
-            angular_damping: 1.0,
-        },
-        Player {
-            speed: 5.0,
-            is_moving: false,
-            is_grounded: false,
-            is_front_flipping: false,
-            is_dive_rolling: false,
-            flip_direction: Vec3::ZERO,
-            facing_left: false,
-            is_falling: false,
-        },
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
-        Name::new("Player"),
-    )).with_children(|parent| {
-        parent.spawn((
-            SceneBundle {
-                scene,
-                transform: Transform::from_xyz(0.0, -0.8, 0.0)
-                    .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2))
-                    .with_scale(Vec3::splat(1.0)),
-                ..default()
+        let preloaded_models = preloaded_models.unwrap();
+        let scene = match selected_character.character_type {
+            CharacterType::Boss3 => {
+                info!("Using preloaded Boss3 model");
+                preloaded_models.boss3.clone()
+            }
+            CharacterType::SwordHero => {
+                info!("Using preloaded SwordHero model");
+                preloaded_models.sword_hero.clone()
+            }
+        };
+
+        let spawn_position = Vec3::new(0.0, 7.0, 0.0);
+
+        commands.spawn((
+            Transform::from_translation(spawn_position),
+            GlobalTransform::default(),
+            RigidBody::Dynamic,
+            Collider::capsule_y(0.4, 0.4),
+            MainCollider,
+            Velocity::default(),
+            GravityScale(1.0),
+            LockedAxes::ROTATION_LOCKED,
+            Friction {
+                coefficient: 0.3,
+                combine_rule: CoefficientCombineRule::Min,
             },
-            Name::new("PlayerModel"),
-        ));
-    });
+            Restitution {
+                coefficient: 0.0,
+                combine_rule: CoefficientCombineRule::Min,
+            },
+            Damping {
+                linear_damping: 0.5,
+                angular_damping: 1.0,
+            },
+            Player {
+                speed: 5.0,
+                is_moving: false,
+                is_grounded: false,
+                is_front_flipping: false,
+                is_dive_rolling: false,
+                flip_direction: Vec3::ZERO,
+                facing_left: false,
+                is_falling: false,
+            },
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+            Name::new("Player"),
+        )).with_children(|parent| {
+            parent.spawn((
+                SceneBundle {
+                    scene,
+                    transform: Transform::from_xyz(0.0, -0.8, 0.0)
+                        .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2))
+                        .with_scale(Vec3::splat(1.0)),
+                    ..default()
+                },
+                Name::new("PlayerModel"),
+            ));
+        });
 
-    spawn_events.send(PlayerSpawnEvent {
-        position: spawn_position,
-    });
+        spawn_events.send(PlayerSpawnEvent {
+            position: spawn_position,
+        });
 
-    info!("Player spawned at {:?}", spawn_position);
+        info!("Player spawned with character: {:?} using preloaded model", selected_character.character_type);
+        info!("=== END PLAYER SPAWN ===");
+    }
 }
 
 fn manage_dive_roll_hitbox(

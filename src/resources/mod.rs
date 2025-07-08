@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 // Game Configuration
 #[derive(Resource)]
@@ -72,9 +73,7 @@ impl Default for GameAssets {
     }
 }
 
-
-
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct PlayerAnimations {
     pub walk: Handle<AnimationClip>,
     pub air: Handle<AnimationClip>,
@@ -83,8 +82,40 @@ pub struct PlayerAnimations {
     pub dive_roll: Handle<AnimationClip>,
 }
 
-// Input Configuration
+// Preloaded animations for both characters
 #[derive(Resource)]
+pub struct PreloadedAnimations {
+    pub boss3: PlayerAnimations,
+    pub sword_hero: PlayerAnimations,
+}
+
+impl Default for PreloadedAnimations {
+    fn default() -> Self {
+        Self {
+            boss3: PlayerAnimations::default(),
+            sword_hero: PlayerAnimations::default(),
+        }
+    }
+}
+
+// Preloaded character models
+#[derive(Resource)]
+pub struct PreloadedCharacterModels {
+    pub boss3: Handle<Scene>,
+    pub sword_hero: Handle<Scene>,
+}
+
+impl Default for PreloadedCharacterModels {
+    fn default() -> Self {
+        Self {
+            boss3: Handle::default(),
+            sword_hero: Handle::default(),
+        }
+    }
+}
+
+// Input Configuration
+#[derive(Resource, Clone)]
 pub struct InputConfig {
     pub move_left: KeyCode,
     pub move_right: KeyCode,
@@ -141,6 +172,145 @@ impl LoadingProgress {
     }
 }
 
+// Character Selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CharacterType {
+    Boss3,
+    SwordHero,
+}
+
+impl CharacterType {
+    pub fn model_path(&self) -> &'static str {
+        match self {
+            CharacterType::Boss3 => "boss3.glb#Scene0",
+            CharacterType::SwordHero => "swordHero.glb#Scene0",
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            CharacterType::Boss3 => "Boss Character",
+            CharacterType::SwordHero => "Sword Hero",
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct SelectedCharacter {
+    pub character_type: CharacterType,
+}
+
+impl Default for SelectedCharacter {
+    fn default() -> Self {
+        Self {
+            character_type: CharacterType::Boss3,
+        }
+    }
+}
+
+// Authentication Resources
+#[derive(Resource, Default, Clone, Serialize, Deserialize)]
+pub struct UserData {
+    pub user_id: Option<String>,
+    pub email: Option<String>,
+    pub username: Option<String>,
+    pub player_stats: PlayerStats,
+    pub preferences: UserPreferences,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PlayerStats {
+    pub level: u32,
+    pub total_play_time: f32,
+    pub high_score: u32,
+    pub achievements: Vec<String>,
+    pub unlocked_characters: Vec<String>,
+}
+
+impl Default for PlayerStats {
+    fn default() -> Self {
+        Self {
+            level: 1,
+            total_play_time: 0.0,
+            high_score: 0,
+            achievements: Vec::new(),
+            unlocked_characters: vec!["Boss3".to_string()], // Default character
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct UserPreferences {
+    pub master_volume: f32,
+    pub sfx_volume: f32,
+    pub music_volume: f32,
+    pub camera_sensitivity: f32,
+}
+
+impl Default for UserPreferences {
+    fn default() -> Self {
+        Self {
+            master_volume: 1.0,
+            sfx_volume: 0.8,
+            music_volume: 0.6,
+            camera_sensitivity: 2.0,
+        }
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct AuthSession {
+    pub is_authenticated: bool,
+    pub session_token: Option<String>,
+    pub expires_at: Option<std::time::SystemTime>,
+}
+
+impl AuthSession {
+    pub fn is_valid(&self) -> bool {
+        self.is_authenticated &&
+        self.session_token.is_some() &&
+        self.expires_at.map_or(false, |exp| exp > std::time::SystemTime::now())
+    }
+}
+
+#[derive(Resource)]
+pub struct AuthConfig {
+    pub api_base_url: String,
+    pub session_duration: std::time::Duration,
+    pub auto_save_interval: std::time::Duration,
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            api_base_url: "https://api.yourgame.com".to_string(), // Replace with your actual API
+            session_duration: std::time::Duration::from_secs(24 * 60 * 60), // 24 hours
+            auto_save_interval: std::time::Duration::from_secs(30), // 30 seconds
+        }
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct AuthFormData {
+    pub email: String,
+    pub password: String,
+    pub confirm_password: String,
+    pub username: String,
+    pub error_message: Option<String>,
+    pub is_loading: bool,
+}
+
+impl AuthFormData {
+    pub fn clear(&mut self) {
+        self.email.clear();
+        self.password.clear();
+        self.confirm_password.clear();
+        self.username.clear();
+        self.error_message = None;
+        self.is_loading = false;
+    }
+}
+
 // Plugin to register all resources
 pub struct ResourcesPlugin;
 
@@ -151,6 +321,14 @@ impl Plugin for ResourcesPlugin {
             .init_resource::<GameStats>()
             .init_resource::<PerformanceMetrics>()
             .init_resource::<InputConfig>()
-            .init_resource::<LoadingProgress>();
+            .init_resource::<LoadingProgress>()
+            .init_resource::<SelectedCharacter>()
+            .init_resource::<PreloadedAnimations>()
+            .init_resource::<PreloadedCharacterModels>()
+            // Authentication resources
+            .init_resource::<UserData>()
+            .init_resource::<AuthSession>()
+            .init_resource::<AuthConfig>()
+            .init_resource::<AuthFormData>();
     }
 }

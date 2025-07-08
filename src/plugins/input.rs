@@ -57,8 +57,16 @@ fn handle_player_input(
     mut player_events: EventWriter<PlayerMoveEvent>,
     mut jump_events: EventWriter<PlayerJumpEvent>,
     mut flip_events: EventWriter<PlayerFlipEvent>,
+    mut next_state: ResMut<NextState<crate::states::GameState>>,
     player_query: Query<Entity, With<crate::Player>>,
 ) {
+    // Check for restart key (i) - return to character selection
+    if keyboard.just_pressed(KeyCode::I) {
+        info!("Restart key pressed - returning to character selection");
+        next_state.set(crate::states::GameState::CharacterSelection);
+        return;
+    }
+
     if let Ok(player_entity) = player_query.get_single() {
         // Movement input
         let mut direction = Vec3::ZERO;

@@ -9,6 +9,8 @@ pub mod rendering;
 pub mod input;
 pub mod audio;
 pub mod debug;
+pub mod character_selection;
+pub mod auth;
 
 // Re-export plugins
 pub use core::*;
@@ -19,6 +21,8 @@ pub use rendering::*;
 pub use input::*;
 pub use audio::*;
 pub use debug::*;
+pub use character_selection::*;
+pub use auth::*;
 
 // Main game plugin that orchestrates everything
 pub struct GamePlugin;
@@ -35,6 +39,8 @@ impl Plugin for GamePlugin {
                 crate::events::EventsPlugin,
                 crate::resources::ResourcesPlugin,
                 CorePlugin,
+                AuthPlugin,
+                CharacterSelectionPlugin,
                 InputPlugin,
                 PlayerPlugin,
                 CameraPlugin,

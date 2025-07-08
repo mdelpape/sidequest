@@ -15,6 +15,7 @@ impl Plugin for PhysicsPlugin {
             .add_systems(OnEnter(PlayState::Setup), (
                 setup_platforms,
                 setup_physics_world,
+                setup_coins_immediately,
             ))
             .add_systems(Update, (
                 handle_platform_interactions,
@@ -24,6 +25,8 @@ impl Plugin for PhysicsPlugin {
                 handle_coin_collection,
                 animate_coins,
                 setup_coins_delayed,
+                trigger_trampoline_animation,
+                update_trampoline_animation,
             ).run_if(in_state(GameState::Playing)));
     }
 }
@@ -92,6 +95,7 @@ fn setup_platforms(
     });
 
     // Add trampoline platform near starting position for testing
+    let trampoline_transform = Transform::from_xyz(6.0, 1.0, 0.0);
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(RoundedBox {
@@ -108,7 +112,7 @@ fn setup_platforms(
                 emissive: Color::rgb(0.1, 0.4, 0.1), // Slight green glow
                 ..default()
             }),
-            transform: Transform::from_xyz(6.0, 1.0, 0.0), // Close to starting position
+            transform: trampoline_transform,
             ..default()
         },
         RigidBody::Fixed,
@@ -116,6 +120,10 @@ fn setup_platforms(
             platform_type: PlatformType::Trampoline,
             is_active: true,
             has_coin: false,
+        },
+        TrampolineAnimation {
+            original_transform: trampoline_transform,
+            ..default()
         },
         Name::new("TrampolinePlatform"),
     ))
@@ -515,6 +523,97 @@ fn setup_coins_delayed(
     *done = true;
 }
 
+fn setup_coins_immediately(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut platform_query: Query<(Entity, &mut Platform, &Transform)>,
+) {
+    let platform_count = platform_query.iter().count();
+    if platform_count == 0 {
+        return; // Wait for platforms to be spawned
+    }
+
+    info!("Setting up coins immediately with {} platforms found", platform_count);
+
+    // Define which platforms should have coins (using indices for simplicity)
+    let coin_platform_indices = vec![
+        1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39
+    ];
+
+    // Gold coin material with strong glow
+    let coin_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(1.0, 0.8, 0.0), // Gold color
+        metallic: 0.7,
+        perceptual_roughness: 0.1,
+        reflectance: 0.9,
+        emissive: Color::rgb(1.5, 1.2, 0.3), // Strong golden glow
+        ..default()
+    });
+
+    // Coin mesh - cylinder to look like a coin
+    let coin_mesh = meshes.add(Mesh::from(shape::Cylinder {
+        radius: 0.3,
+        height: 0.1,
+        resolution: 16,
+        segments: 1,
+    }));
+
+    let mut coins_spawned = 0;
+    let mut platform_index = 0;
+    for (platform_entity, mut platform, platform_transform) in platform_query.iter_mut() {
+        // Check if this platform should have a coin
+        if coin_platform_indices.contains(&platform_index) {
+            platform.has_coin = true;
+
+            // Spawn coin above the platform
+            let coin_base_position = platform_transform.translation + Vec3::new(0.0, 1.5, 0.0);
+
+            let _coin_entity = commands.spawn((
+                PbrBundle {
+                    mesh: coin_mesh.clone(),
+                    material: coin_material.clone(),
+                    transform: Transform::from_translation(coin_base_position)
+                        .with_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
+                    ..default()
+                },
+                RigidBody::KinematicPositionBased,
+                Collider::cylinder(0.05, 0.3), // Thin collider for coin
+                Coin {
+                    platform_entity: Some(platform_entity),
+                    float_height: coin_base_position.y, // Set the base floating height
+                    ..default()
+                },
+                Name::new(format!("Coin_{}", platform_index)),
+            )).with_children(|parent| {
+                // Add glowing point light to the coin
+                parent.spawn((
+                    PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 300.0,
+                            color: Color::rgb(1.0, 0.8, 0.2), // Warm golden light
+                            shadows_enabled: false, // Disable shadows for performance
+                            range: 6.0,
+                            radius: 0.3,
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(0.0, 0.0, 0.0), // Center on coin
+                        ..default()
+                    },
+                    Name::new(format!("CoinLight_{}", platform_index)),
+                ));
+            }).id();
+
+            coins_spawned += 1;
+            info!("Spawned coin on platform {}", platform_index);
+        }
+
+        platform_index += 1;
+    }
+
+    info!("Coins setup complete! Spawned {} coins", coins_spawned);
+}
+
 fn animate_coins(
     time: Res<Time>,
     mut coin_query: Query<(Entity, &mut Transform, &Coin)>,
@@ -629,7 +728,7 @@ fn handle_trampoline_collisions(
 
                 trampoline_events.send(TrampolineBounceEvent {
                     player_entity,
-                    bounce_force: 50.0, // Increased force
+                    bounce_force: 12.0, // Increased force
                     platform_entity: trampoline_entity,
                 });
 
@@ -686,6 +785,16 @@ pub struct Coin {
     pub platform_entity: Option<Entity>,
 }
 
+// Trampoline animation component
+#[derive(Component)]
+pub struct TrampolineAnimation {
+    pub is_animating: bool,
+    pub animation_time: f32,
+    pub animation_duration: f32,
+    pub original_transform: Transform,
+    pub compression_amount: f32,
+}
+
 
 
 impl Default for Coin {
@@ -696,6 +805,18 @@ impl Default for Coin {
             rotation_speed: 2.0,
             collection_radius: 1.0,
             platform_entity: None,
+        }
+    }
+}
+
+impl Default for TrampolineAnimation {
+    fn default() -> Self {
+        Self {
+            is_animating: false,
+            animation_time: 0.0,
+            animation_duration: 0.3, // 300ms animation
+            original_transform: Transform::IDENTITY,
+            compression_amount: 0.3, // 30% compression
         }
     }
 }
@@ -731,13 +852,85 @@ fn handle_trampoline_proximity(
 
                 trampoline_events.send(TrampolineBounceEvent {
                     player_entity,
-                    bounce_force: 15.0,
+                    bounce_force: 12.0,
                     platform_entity,
                 });
 
                 *last_proximity_bounce_time = current_time;
                 info!("Proximity trampoline bounce applied with force 15.0");
             }
+        }
+    }
+}
+
+fn trigger_trampoline_animation(
+    mut bounce_events: EventReader<TrampolineBounceEvent>,
+    mut trampoline_query: Query<&mut TrampolineAnimation>,
+    platform_query: Query<&Platform>,
+) {
+    for event in bounce_events.read() {
+        // Check if the platform is a trampoline
+        if let Ok(platform) = platform_query.get(event.platform_entity) {
+            if matches!(platform.platform_type, PlatformType::Trampoline) {
+                // Find the trampoline entity with animation component
+                if let Ok(mut animation) = trampoline_query.get_mut(event.platform_entity) {
+                    // Start the animation
+                    animation.is_animating = true;
+                    animation.animation_time = 0.0;
+                    info!("Trampoline animation triggered!");
+                }
+            }
+        }
+    }
+}
+
+fn update_trampoline_animation(
+    time: Res<Time>,
+    mut trampoline_query: Query<(&mut Transform, &mut TrampolineAnimation)>,
+) {
+    for (mut transform, mut animation) in trampoline_query.iter_mut() {
+        if !animation.is_animating {
+            continue;
+        }
+
+        animation.animation_time += time.delta_seconds();
+
+        let progress = animation.animation_time / animation.animation_duration;
+
+        if progress >= 1.0 {
+            // Animation complete - reset to original transform
+            animation.is_animating = false;
+            animation.animation_time = 0.0;
+            transform.translation = animation.original_transform.translation;
+            transform.scale = animation.original_transform.scale;
+        } else {
+            // Calculate animation using a bouncy ease-out function
+            let bounce_progress = if progress < 0.5 {
+                // Compression phase - ease in
+                let t = progress * 2.0;
+                t * t
+            } else {
+                // Expansion phase - ease out with bounce
+                let t = (progress - 0.5) * 2.0;
+                1.0 - (1.0 - t) * (1.0 - t)
+            };
+
+            // Apply compression effect
+            let compression_factor = if progress < 0.5 {
+                // Compress down
+                1.0 - (bounce_progress * animation.compression_amount)
+            } else {
+                // Expand back up with slight overshoot
+                let overshoot = 1.0 + (1.0 - bounce_progress) * 0.1;
+                1.0 - (1.0 - bounce_progress) * animation.compression_amount * overshoot
+            };
+
+            // Apply scale and position changes
+            transform.scale.y = animation.original_transform.scale.y * compression_factor;
+
+            // Move down slightly when compressed
+            let vertical_offset = (1.0 - compression_factor) * 0.2;
+            transform.translation.y = animation.original_transform.translation.y - vertical_offset;
         }
     }
 }

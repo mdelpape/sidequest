@@ -94,6 +94,29 @@ pub struct TrampolineBounceEvent {
     pub platform_entity: Entity,
 }
 
+// Authentication Events
+#[derive(Event)]
+pub struct AuthRequestEvent {
+    pub request_type: AuthRequestType,
+    pub email: String,
+    pub password: String,
+    pub username: Option<String>,
+}
+
+#[derive(Event)]
+pub struct AuthResponseEvent {
+    pub success: bool,
+    pub message: String,
+    pub user_data: Option<crate::resources::UserData>,
+    pub session_token: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AuthRequestType {
+    Login,
+    SignUp,
+}
+
 // Plugin to register all events
 pub struct EventsPlugin;
 
@@ -115,6 +138,8 @@ impl Plugin for EventsPlugin {
             .add_event::<SystemErrorEvent>()
             .add_event::<DebugEvent>()
             .add_event::<CoinCollectedEvent>()
-            .add_event::<TrampolineBounceEvent>();
+            .add_event::<TrampolineBounceEvent>()
+            .add_event::<AuthRequestEvent>()
+            .add_event::<AuthResponseEvent>();
     }
 }

@@ -1,249 +1,168 @@
-# Sidequest - Bevy ECS Game Architecture
+# SideQuest - 3D Parkour Game
 
-A comprehensive Bevy ECS game built with a modular plugin architecture for easy development and maintenance.
+A 3D parkour game built with Bevy Engine featuring character selection, physics-based movement, and user authentication.
 
-## 🏗️ Architecture Overview
+## Features
 
-This project uses a sophisticated ECS (Entity Component System) architecture with the following structure:
+### Core Gameplay
+- **3D Parkour Movement**: Jump, flip, and dive-roll through challenging levels
+- **Character Selection**: Choose between Boss3 and SwordHero characters
+- **Physics-Based Gameplay**: Realistic physics using Rapier3D
+- **Dynamic Camera**: Follow the player with smooth camera movement
 
-### 📁 Project Structure
+### Authentication System
+- **Email/Password Authentication**: Simple signup and login system
+- **User Data Persistence**: Save player progress, stats, and preferences
+- **Session Management**: Secure session handling with automatic expiration
+- **Demo Mode**: Skip authentication for quick testing
 
-```
-src/
-├── lib.rs              # Main library entry point
-├── main.rs             # Application entry point
-├── components/         # ECS Components
-│   ├── boss.rs         # Player/Boss components
-│   ├── camera.rs       # Camera components
-│   ├── light.rs        # Lighting components
-│   ├── platform.rs     # Platform components
-│   ├── skybox.rs       # Skybox components
-│   └── mod.rs          # Component module exports
-├── systems/            # Legacy systems (being phased out)
-├── resources/          # ECS Resources
-│   └── mod.rs          # Global game resources
-├── events/             # ECS Events
-│   └── mod.rs          # Event definitions
-├── states/             # Game States
-│   └── mod.rs          # State management
-└── plugins/            # Plugin Architecture
-    ├── core.rs         # Core game systems
-    ├── player.rs       # Player/Boss management
-    ├── camera.rs       # Camera systems
-    ├── physics.rs      # Physics and platforms
-    ├── rendering.rs    # Rendering and lighting
-    ├── input.rs        # Input handling
-    ├── audio.rs        # Audio systems
-    ├── debug.rs        # Debug tools
-    └── mod.rs          # Plugin orchestration
-```
+### Player Data
+- **Player Statistics**: Track level, play time, high score, and achievements
+- **Character Unlocks**: Manage unlocked characters and progression
+- **User Preferences**: Save volume settings and camera sensitivity
+- **Auto-save**: Automatic saving of player data every 30 seconds
 
-## 🎮 Game Features
-
-### Player System
-- **Movement**: WASD keys for movement
-- **Jumping**: Space bar for jumping
-- **Flips**: W for front flip, S for dive roll
-- **Physics**: Rapier3D physics with collisions
-- **Animations**: Multiple character animations
-
-### Camera System
-- **Follow Camera**: Smooth camera following
-- **Camera Shake**: Dynamic shake effects on actions
-- **Skybox**: Beautiful cube-mapped skybox
-
-### Platform System
-- **Multiple Types**: Ground, Floating, Small, Stepping Stones, Bridges
-- **Physics Integration**: Full collision detection
-- **Visual Variety**: Different colors for platform types
-
-### Debug System
-- **Debug Mode**: F3 to toggle debug information
-- **Visual Debugging**: F4 for collider visualization
-- **Physics Debug**: F5 for physics debug rendering
-- **Stats Reset**: F6 to reset game statistics
-
-## 🔧 Development Features
-
-### Plugin Architecture
-Each major system is organized as a plugin:
-
-```rust
-// Easy to add new features
-app.add_plugins((
-    CorePlugin,
-    PlayerPlugin,
-    CameraPlugin,
-    PhysicsPlugin,
-    RenderingPlugin,
-    AudioPlugin,
-    DebugPlugin,
-));
-```
-
-### Event System
-Decoupled communication between systems:
-
-```rust
-// Events for clean system communication
-PlayerJumpEvent, PlayerFlipEvent, PlayerMoveEvent
-AnimationStartEvent, AnimationEndEvent
-DebugEvent, SystemErrorEvent
-```
-
-### Resource Management
-Centralized configuration and state:
-
-```rust
-// Game configuration
-GameConfig { debug_mode, show_colliders, volumes, ... }
-
-// Statistics tracking
-GameStats { play_time, jump_count, flip_count, ... }
-
-// Performance monitoring
-PerformanceMetrics { fps, frame_time, entity_count, ... }
-```
-
-### State Management
-Proper game state handling:
-
-```rust
-#[derive(States)]
-enum GameState {
-    Loading,
-    Playing,
-    Paused,
-    GameOver,
-}
-
-#[derive(States)]
-enum PlayState {
-    Setup,
-    Playing,
-    Transitioning,
-}
-```
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Rust 1.70+
 - Cargo
 
-### Running the Game
+### Installation
+1. Clone the repository:
 ```bash
-# Development mode
-cargo run
+git clone <repository-url>
+cd sidequest
+```
 
-# Release mode (better performance)
+2. Build the project:
+```bash
+cargo build --release
+```
+
+3. Run the game:
+```bash
 cargo run --release
-
-# Check for errors
-cargo check
 ```
 
-### Controls
-- **A/D**: Move left/right
-- **Space**: Jump
-- **W**: Front flip
-- **S**: Dive roll
-- **Escape**: Pause/Resume
-- **F3**: Toggle debug mode
-- **F4**: Toggle collider visualization
-- **F5**: Toggle physics debug
-- **F6**: Reset statistics
+## Architecture
 
-## 🛠️ Development
+### Plugin System
+The game uses a modular plugin architecture:
 
-### Adding New Features
+- **AuthPlugin**: Handles user authentication and session management
+- **CorePlugin**: Core game systems and state management
+- **CharacterSelectionPlugin**: Character selection UI and logic
+- **PlayerPlugin**: Player movement and controls
+- **PhysicsPlugin**: Physics simulation and collision detection
+- **RenderingPlugin**: 3D rendering and graphics
+- **InputPlugin**: Input handling and key mapping
 
-1. **Create a Component**:
+### State Management
+The game uses Bevy's state system for different game phases:
+
+- **Loading**: Asset loading and initialization
+- **Authentication**: User login/signup
+- **CharacterSelection**: Choose your character
+- **Playing**: Main gameplay
+- **Paused**: Game pause state
+
+### Authentication Flow
+1. **Loading**: Game assets are loaded
+2. **Authentication**: User presented with login/signup UI
+3. **Login/Signup**: User enters credentials
+4. **Session Creation**: Valid credentials create a session
+5. **Character Selection**: User chooses character
+6. **Gameplay**: Main game begins
+
+## Configuration
+
+### API Integration
+To connect to your backend API, update the `AuthConfig` in `src/resources/mod.rs`:
+
 ```rust
-// src/components/my_feature.rs
-#[derive(Component)]
-pub struct MyFeature {
-    pub some_data: f32,
-}
-```
-
-2. **Create a Plugin**:
-```rust
-// src/plugins/my_feature.rs
-pub struct MyFeaturePlugin;
-
-impl Plugin for MyFeaturePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Update, my_feature_system);
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            api_base_url: "https://your-api.com".to_string(),
+            session_duration: std::time::Duration::from_secs(24 * 60 * 60), // 24 hours
+            auto_save_interval: std::time::Duration::from_secs(30), // 30 seconds
+        }
     }
 }
 ```
 
-3. **Add to GamePlugin**:
-```rust
-// src/plugins/mod.rs
-.add_plugins((
-    // ... existing plugins ...
-    MyFeaturePlugin,
-))
+### Backend API Endpoints
+Your backend should implement these endpoints:
+
+- `POST /auth/login`: User login
+  - Request: `{ "email": "user@example.com", "password": "password" }`
+  - Response: `{ "success": true, "user_data": {...}, "session_token": "..." }`
+
+- `POST /auth/signup`: User registration
+  - Request: `{ "email": "user@example.com", "password": "password", "username": "player" }`
+  - Response: `{ "success": true, "user_data": {...}, "session_token": "..." }`
+
+## Development
+
+### Building for Development
+```bash
+cargo build
 ```
 
-### Event-Driven Development
-
-Create events for system communication:
-
-```rust
-#[derive(Event)]
-pub struct MyEvent {
-    pub entity: Entity,
-    pub data: MyData,
-}
-
-// Send events
-event_writer.send(MyEvent { ... });
-
-// Receive events
-for event in event_reader.read() {
-    // Handle event
-}
+### Running Tests
+```bash
+cargo test
 ```
 
-### Debug Tools
+### Debug Mode
+The game includes debug features when running in development mode:
+- Physics debug visualization
+- Performance metrics
+- Console logging
 
-The debug system provides comprehensive development tools:
+## Controls
 
-- **Real-time Statistics**: Performance metrics and game stats
-- **Visual Debugging**: Collider and physics visualization
-- **Entity Inspector**: Runtime entity debugging
-- **Console Commands**: F-key shortcuts for quick debugging
+- **WASD**: Move left/right, front flip, dive roll
+- **Space**: Jump
+- **C**: Toggle camera mode
+- **F3**: Toggle debug overlay
+- **Escape**: Pause/unpause
 
-## 📊 Performance
+## Dependencies
 
-- **Plugin Architecture**: Modular systems for better performance
-- **Event System**: Efficient decoupled communication
-- **State Management**: Proper resource cleanup
-- **Debug Controls**: Easy performance monitoring
+### Core Game Engine
+- **Bevy**: 3D game engine
+- **Bevy Rapier3D**: Physics simulation
+- **Bevy Egui**: UI framework
 
-## 🎯 Future Enhancements
+### Authentication
+- **Reqwest**: HTTP client for API calls
+- **Serde**: JSON serialization
+- **Tokio**: Async runtime
+- **BCrypt**: Password hashing (for future use)
 
-The architecture supports easy addition of:
-- **UI System**: Menu and HUD management
-- **Audio System**: Sound effects and music
-- **Save System**: Game state persistence
-- **Networking**: Multiplayer support
-- **Asset Management**: Advanced resource loading
-- **Scripting**: Lua/WASM integration
+### Utilities
+- **UUID**: Unique identifiers
+- **Bevy Mod Rounded Box**: UI styling
 
-## 🤝 Contributing
+## Future Enhancements
 
-The modular architecture makes contributing easy:
+- **Real API Integration**: Connect to actual backend services
+- **Password Security**: Implement proper password hashing
+- **Social Features**: Leaderboards and achievements
+- **Level Editor**: Create and share custom levels
+- **Multiplayer**: Race against other players
+- **Mobile Support**: iOS and Android versions
 
-1. Choose a plugin/system to work on
-2. Create components, resources, and events as needed
-3. Implement systems with proper state management
-4. Add debug tools for development
-5. Test with the comprehensive debug system
+## Contributing
 
-## 📝 License
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-This project is open source and available under the MIT License.
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
