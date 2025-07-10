@@ -122,7 +122,7 @@ fn create_character_option(
     parent: &mut ChildBuilder,
     character_type: CharacterType,
     is_selected: bool,
-    asset_server: &Res<AssetServer>,
+    _asset_server: &Res<AssetServer>,
 ) {
     let border_color = if is_selected {
         Color::rgba(0.2, 0.8, 0.2, 1.0) // Green for selected

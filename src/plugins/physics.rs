@@ -47,9 +47,9 @@ fn setup_platforms(
             })),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.5, 0.5, 0.5),
-                perceptual_roughness: 0.8,
-                metallic: 0.0,
-                reflectance: 0.4,
+                perceptual_roughness: 0.3,
+                metallic: 0.1,
+                reflectance: 0.8,
                 ..default()
             }),
             transform: Transform::from_xyz(0.0, -0.25, 0.0),
@@ -61,6 +61,7 @@ fn setup_platforms(
             platform_type: PlatformType::Ground,
             is_active: true,
             has_coin: false,
+            has_lights: true, // Ground platform should have lights for testing
         },
         Name::new("GroundPlatform"),
     ))
@@ -92,6 +93,23 @@ fn setup_platforms(
                 combine_rule: CoefficientCombineRule::Min,
             },
         ));
+
+        // Add point light for ground platform
+        parent.spawn((
+            PointLightBundle {
+                point_light: PointLight {
+                    intensity: 1000.0,
+                    color: Color::rgb(0.4, 0.8, 1.0),
+                    shadows_enabled: true,
+                    range: 30.0, // Large range for ground platform
+                    radius: 2.0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 1.0, 0.0), // Position above ground
+                ..default()
+            },
+            Name::new("GroundPlatformLight"),
+        ));
     });
 
     // Add trampoline platform near starting position for testing
@@ -108,8 +126,8 @@ fn setup_platforms(
                 base_color: Color::rgb(0.2, 0.8, 0.2), // Bright green for trampoline
                 perceptual_roughness: 0.3,
                 metallic: 0.1,
-                reflectance: 0.6,
-                emissive: Color::rgb(0.1, 0.4, 0.1), // Slight green glow
+                reflectance: 0.8,
+                emissive: Color::rgb(0.5, 2.0, 0.5), // Much stronger green glow for trampoline
                 ..default()
             }),
             transform: trampoline_transform,
@@ -120,6 +138,7 @@ fn setup_platforms(
             platform_type: PlatformType::Trampoline,
             is_active: true,
             has_coin: false,
+            has_lights: true, // Trampolines have lights
         },
         TrampolineAnimation {
             original_transform: trampoline_transform,
@@ -155,6 +174,23 @@ fn setup_platforms(
                 coefficient: 0.3,
                 combine_rule: CoefficientCombineRule::Min,
             },
+        ));
+
+        // Add point light for trampoline
+        parent.spawn((
+            PointLightBundle {
+                point_light: PointLight {
+                    intensity: 800.0,
+                    color: Color::rgb(0.2, 1.0, 0.2), // Bright green light
+                    shadows_enabled: true,
+                    range: 12.0, // Good range for trampoline
+                    radius: 1.0,
+                    ..default()
+                },
+                transform: Transform::from_xyz(0.0, 1.0, 0.0), // Position above trampoline
+                ..default()
+            },
+            Name::new("TrampolinePlatformLight"),
         ));
     });
 
@@ -272,7 +308,41 @@ fn setup_platforms(
             PlatformType::Trampoline => Color::rgb(0.2, 0.8, 0.2),
         };
 
-        commands.spawn((
+        // Determine if this platform should have lights
+        let has_lights = match platform_type {
+            PlatformType::Bridge => true, // All bridges have lights
+            PlatformType::Floating => i % 3 == 0, // Every 3rd floating platform
+            PlatformType::Small => i % 4 == 0, // Every 4th small platform
+            PlatformType::SteppingStone => i % 5 == 0, // Every 5th stepping stone
+            PlatformType::Trampoline => true, // All trampolines have lights
+            _ => false,
+        };
+
+        // Create material based on whether platform has lights
+        let material = if has_lights {
+            materials.add(StandardMaterial {
+                base_color: color,
+                perceptual_roughness: 0.3,
+                metallic: 0.1,
+                reflectance: 0.8,
+                emissive: match platform_type {
+                    PlatformType::Trampoline => Color::rgb(0.5, 2.0, 0.5), // Strong green glow
+                    PlatformType::Bridge => Color::rgb(0.8, 0.4, 1.0), // Purple glow
+                    _ => Color::rgb(0.4, 0.8, 1.0), // Cyan glow for others
+                },
+                ..default()
+            })
+        } else {
+            materials.add(StandardMaterial {
+                base_color: color,
+                perceptual_roughness: 0.8,
+                metallic: 0.0,
+                reflectance: 0.4,
+                ..default()
+            })
+        };
+
+        let platform_entity = commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(RoundedBox {
                     size: *size,
@@ -280,13 +350,7 @@ fn setup_platforms(
                     subdivisions: 6,
                     options: BoxMeshOptions::DEFAULT,
                 })),
-                material: materials.add(StandardMaterial {
-                    base_color: color,
-                    perceptual_roughness: 0.8,
-                    metallic: 0.0,
-                    reflectance: 0.4,
-                    ..default()
-                }),
+                material,
                 transform: Transform::from_translation(*position),
                 ..default()
             },
@@ -296,6 +360,7 @@ fn setup_platforms(
                 platform_type: platform_type.clone(),
                 is_active: true,
                 has_coin: false,
+                has_lights,
             },
             Name::new(format!("Platform_{}", i)),
         ))
@@ -327,6 +392,31 @@ fn setup_platforms(
                     combine_rule: CoefficientCombineRule::Min,
                 },
             ));
+
+            // Add point light if platform has lights
+            if has_lights {
+                let (light_color, light_intensity) = match platform_type {
+                    PlatformType::Trampoline => (Color::rgb(0.2, 1.0, 0.2), 800.0), // Bright green
+                    PlatformType::Bridge => (Color::rgb(0.8, 0.4, 1.0), 600.0), // Purple
+                    _ => (Color::rgb(0.4, 0.8, 1.0), 500.0), // Cyan
+                };
+
+                parent.spawn((
+                    PointLightBundle {
+                        point_light: PointLight {
+                            intensity: light_intensity,
+                            color: light_color,
+                            shadows_enabled: true,
+                            range: size.x.max(size.z) * 3.0, // Scale range with platform size
+                            radius: 0.8,
+                            ..default()
+                        },
+                        transform: Transform::from_xyz(0.0, size.y * 0.5, 0.0), // Position above platform
+                        ..default()
+                    },
+                    Name::new(format!("PlatformLight_{}", i)),
+                ));
+            }
         });
     }
 
@@ -477,7 +567,7 @@ fn setup_coins_delayed(
             // Spawn coin above the platform
             let coin_base_position = platform_transform.translation + Vec3::new(0.0, 1.5, 0.0);
 
-            let coin_entity = commands.spawn((
+            let _coin_entity = commands.spawn((
                 PbrBundle {
                     mesh: coin_mesh.clone(),
                     material: coin_material.clone(),
@@ -648,7 +738,7 @@ fn handle_coin_collection(
     mut stats: ResMut<crate::resources::GameStats>,
 ) {
     // Check for player-coin collisions
-    if let Ok((player_entity, player_transform)) = player_query.get_single() {
+    if let Ok((_player_entity, player_transform)) = player_query.get_single() {
         for (coin_entity, coin_transform, coin) in coin_query.iter() {
             let distance = player_transform.translation.distance(coin_transform.translation);
 
@@ -675,8 +765,8 @@ fn handle_platform_interactions(
     player_query: Query<(Entity, &Transform, &Player), (With<Player>, Without<Platform>)>,
     mut stats: ResMut<crate::resources::GameStats>,
 ) {
-    if let Ok((player_entity, player_transform, player)) = player_query.get_single() {
-        for (platform_entity, platform, platform_transform) in platform_query.iter() {
+    if let Ok((_player_entity, player_transform, _player)) = player_query.get_single() {
+        for (_platform_entity, platform, platform_transform) in platform_query.iter() {
             let distance = player_transform.translation.distance(platform_transform.translation);
 
             if distance < 3.0 && platform.is_active {
@@ -762,6 +852,7 @@ pub struct Platform {
     pub platform_type: PlatformType,
     pub is_active: bool,
     pub has_coin: bool,
+    pub has_lights: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -794,8 +885,6 @@ pub struct TrampolineAnimation {
     pub original_transform: Transform,
     pub compression_amount: f32,
 }
-
-
 
 impl Default for Coin {
     fn default() -> Self {

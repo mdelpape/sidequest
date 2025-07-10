@@ -41,6 +41,7 @@ pub fn setup_platform(
             platform_type: PlatformType::Ground,
             is_active: true,
             has_coin: false,
+            has_lights: false,
         },
     ));
 
@@ -92,6 +93,7 @@ pub fn setup_platform(
                 platform_type: PlatformType::Floating,
                 is_active: true,
                 has_coin: false,
+                has_lights: false,
             },
         ));
     }

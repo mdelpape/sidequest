@@ -72,18 +72,6 @@ pub fn setup_lighting(
         (Vec3::new(8.0, 0.05, 2.0), FloorLightType::Accent),
         (Vec3::new(-8.0, 0.05, -2.0), FloorLightType::Accent),
         (Vec3::new(8.0, 0.05, -2.0), FloorLightType::Accent),
-
-        // Final victory platform - celebration lighting
-        (Vec3::new(40.0, 72.05, 2.0), FloorLightType::Accent),
-        (Vec3::new(40.0, 72.05, -2.0), FloorLightType::Accent),
-
-        // Checkpoint areas
-        (Vec3::new(24.0, 6.30, 1.0), FloorLightType::Accent),
-        (Vec3::new(24.0, 6.30, -1.0), FloorLightType::Accent),
-        (Vec3::new(39.0, 23.30, 1.0), FloorLightType::Accent),
-        (Vec3::new(39.0, 23.30, -1.0), FloorLightType::Accent),
-        (Vec3::new(18.0, 32.30, 1.0), FloorLightType::Accent),
-        (Vec3::new(18.0, 32.30, -1.0), FloorLightType::Accent)
     ];
 
     // Material for floor light housing
